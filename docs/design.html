@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Codenames Online — Documento de diseño (v2)</title>
+<style>
+  :root {
+    --red: #ef4444; --red-d: #c81e1e;
+    --blue: #3b82f6; --blue-d: #1a40b8;
+    --accent: #4f46e5;
+    --bg: #f7f7fb; --surface: #ffffff;
+    --text: #1f2330; --muted: #6b7280;
+    --border: #e5e7eb; --code-bg: #0f1222; --code-fg: #e6e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65; font-size: 16px;
+  }
+  .layout { display: grid; grid-template-columns: 260px 1fr; max-width: 1180px; margin: 0 auto; }
+  /* Sidebar */
+  nav {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 28px 20px; border-right: 1px solid var(--border); background: var(--surface);
+  }
+  nav .brand { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; margin-bottom: 4px; }
+  nav .brand .r { color: var(--red); } nav .brand .b { color: var(--blue); }
+  nav .ver { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+  nav a { display: block; color: var(--muted); text-decoration: none; font-size: 13.5px;
+          padding: 5px 10px; border-radius: 7px; margin: 1px 0; }
+  nav a:hover { background: var(--bg); color: var(--text); }
+  nav a.sub { padding-left: 22px; font-size: 12.5px; }
+  /* Content */
+  main { padding: 44px 52px 120px; min-width: 0; }
+  h1 { font-size: 34px; letter-spacing: -0.03em; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 17px; margin: 0 0 8px; }
+  h2 { font-size: 23px; letter-spacing: -0.02em; margin: 52px 0 12px; padding-bottom: 8px;
+       border-bottom: 2px solid var(--border); }
+  h3 { font-size: 17px; margin: 28px 0 8px; }
+  p { margin: 10px 0; }
+  code { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 0.86em;
+         background: #eceef5; padding: 1.5px 5px; border-radius: 5px; }
+  pre { background: var(--code-bg); color: var(--code-fg); padding: 18px 20px; border-radius: 12px;
+        overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: none; padding: 0; color: inherit; font-size: 13px; }
+  .tok-k { color: #c792ea; } .tok-t { color: #82aaff; } .tok-s { color: #c3e88d; }
+  .tok-c { color: #6b7394; font-style: italic; } .tok-p { color: #f78c6c; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg); font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+  td code { font-size: 0.85em; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+          text-transform: uppercase; letter-spacing: 0.04em; }
+  .pill.red { color: var(--red-d); background: #fdecec; }
+  .pill.blue { color: var(--blue-d); background: #e8effd; }
+  .pill.green { color: #15803d; background: #e7f6ec; }
+  .pill.gray { color: #4b5563; background: #eef0f3; }
+  .callout { border-left: 4px solid var(--accent); background: #f0effe; padding: 12px 16px;
+             border-radius: 0 10px 10px 0; margin: 16px 0; }
+  .callout.warn { border-color: #f59e0b; background: #fef6e7; }
+  .callout.key { border-color: var(--red); background: #fdecec; }
+  .callout.tv { border-color: #0891b2; background: #e6f6fa; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card-box { border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; background: var(--surface); }
+  .card-box h4 { margin: 0 0 6px; font-size: 14px; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  /* Architecture diagram */
+  .diagram { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 18px 0;
+             padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  .nodes { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .node { border: 2px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 13px;
+          font-weight: 600; background: var(--bg); text-align: center; }
+  .node small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .node.server { border-color: var(--accent); background: #f0effe; }
+  .node.redm { border-color: var(--red); } .node.bluem { border-color: var(--blue); }
+  .node.tv { border-color: #0891b2; background: #e6f6fa; }
+  .arrow { color: var(--muted); font-size: 22px; line-height: 1; }
+  .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+  /* State machine */
+  .states { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .state { border: 2px solid var(--accent); border-radius: 999px; padding: 8px 16px; font-weight: 700;
+           font-size: 13px; background: #f0effe; }
+  .state.end { border-color: #15803d; background: #e7f6ec; }
+  .state.start { border-color: var(--muted); background: var(--bg); }
+  .seq { counter-reset: step; list-style: none; padding-left: 0; }
+  .seq li { counter-increment: step; position: relative; padding-left: 38px; margin: 12px 0; }
+  .seq li::before { content: counter(step); position: absolute; left: 0; top: -2px; width: 26px; height: 26px;
+    background: var(--accent); color: #fff; border-radius: 50%; display: grid; place-items: center;
+    font-size: 13px; font-weight: 700; }
+  .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; } nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 28px 20px 80px; } .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand"><span class="r">Code</span><span class="b">names</span> Online</div>
+    <div class="ver">Documento de diseño · v2 · rev. 4 (diseño cerrado) · 2026-06-04</div>
+    <a href="#vision">1. Visión y objetivo</a>
+    <a href="#cambia">2. Qué cambia vs. v1</a>
+    <a href="#decisiones">3. Decisiones tomadas</a>
+    <a href="#arquitectura">4. Arquitectura</a>
+    <a href="#arquitectura" class="sub">4.1 Clientes neutrales / TV</a>
+    <a href="#hosting">5. Hosting y repo</a>
+    <a href="#dominio">6. Modelo de dominio</a>
+    <a href="#estados">7. Máquina de estados</a>
+    <a href="#reglas">8. Reglas del juego</a>
+    <a href="#anticheat">9. Anti-cheat (redacción)</a>
+    <a href="#protocolo">10. Protocolo de mensajes</a>
+    <a href="#flujo">11. Flujo de una ronda</a>
+    <a href="#frontend">12. Frontend</a>
+    <a href="#ia">13. Sugerencia de pista (IA)</a>
+    <a href="#persistencia">14. Persistencia y reconexión</a>
+    <a href="#roadmap">15. Roadmap</a>
+    <a href="#abiertas">16. Parámetros y configuración</a>
+  </nav>
+
+  <main>
+    <h1>Codenames Online</h1>
+    <p class="lede">Segunda versión: multiplayer real con backend, salas y estado sincronizado en tiempo real.</p>
+    <p>Este documento describe la arquitectura y el diseño de la v2. Está pensado para revisarse <em>antes</em> de escribir código: cuando lo apruebes (o lo ajustemos), pasamos a scaffoldear el repo.</p>
+
+    <h2 id="vision">1. Visión y objetivo</h2>
+    <p>Hoy la v1 es un SPA estático: el "multiplayer" es un truco determinístico — todos cargan la misma semilla (código de "Sala") y generan el mismo tablero, pero los reveals son <strong>locales</strong> y no se comparten. No hay turnos ni roles reales.</p>
+    <p>La v2 convierte eso en multiplayer de verdad: <strong>salas creadas en un servidor</strong>, con <strong>estado autoritativo</strong> y <strong>sincronizado en tiempo real</strong> entre todos los jugadores, e implementando las <strong>reglas completas de Codenames</strong> (spymaster, pista, turnos, adivinanzas).</p>
+
+    <h2 id="cambia">2. Qué cambia respecto de la v1</h2>
+    <table>
+      <tr><th>Aspecto</th><th>v1 (actual)</th><th>v2 (este diseño)</th></tr>
+      <tr><td>Estado</td><td>Local en cada cliente (<code>useReducer</code>)</td><td>Autoritativo en el servidor, una instancia por sala</td></tr>
+      <tr><td>Sincronización</td><td>Solo el tablero (vía semilla)</td><td>Todo el juego, vía WebSocket en tiempo real</td></tr>
+      <tr><td>Roles</td><td>Toggle local "Espía" (cualquiera lo prende)</td><td>Spymaster / operativo + neutrales, validado en el server</td></tr>
+      <tr><td>Turnos</td><td>No existen — se revela hasta ganar</td><td>Turnos alternados, pista + número, adivinanzas limitadas</td></tr>
+      <tr><td>Anti-cheat</td><td>Ninguno (colores en el cliente)</td><td>Colores redactados según rol; no viajan al operativo ni a la TV</td></tr>
+      <tr><td>Pantalla compartida</td><td>—</td><td>Cliente "mesa" para TV en juntadas presenciales</td></tr>
+      <tr><td>Distribución</td><td>~8/8 + relleno aleatorio</td><td>Canónica 9 / 8 / 7 / 1</td></tr>
+      <tr><td>Reusable</td><td>—</td><td><code>Board</code>, <code>Card</code>, flip dramático, confeti</td></tr>
+    </table>
+    <div class="callout">Como es un <strong>repo nuevo</strong>, nos liberamos del contrato de compatibilidad de semilla de la v1 (que obligaba a mantener idéntica la secuencia de <code>rng()</code>). Eso nos deja usar la distribución canónica de cartas sin ataduras.</div>
+
+    <h2 id="decisiones">3. Decisiones tomadas</h2>
+    <div class="grid2">
+      <div class="card-box"><h4>Stack de tiempo real</h4><span class="pill green">PartyKit / Durable Objects</span><p>Cada sala = un objeto con estado autoritativo en memoria, WebSockets nativos, ~0 costo a escala hobby.</p></div>
+      <div class="card-box"><h4>Reglas</h4><span class="pill red">Codenames completo</span><p>Spymaster por equipo, pista palabra+número, adivinanzas limitadas, turnos alternados.</p></div>
+      <div class="card-box"><h4>Repo</h4><span class="pill blue">Nuevo, server+cliente juntos</span><p>Un repo nuevo (separado de la v1), pero front y back conviven y comparten tipos.</p></div>
+      <div class="card-box"><h4>Hosting</h4><span class="pill gray">Cloudflare vía PartyKit</span><p><code>partykit deploy</code> sube el server al edge y puede servir también el front estático.</p></div>
+    </div>
+
+    <h2 id="arquitectura">4. Arquitectura</h2>
+    <p>El navegador de cada participante abre un WebSocket contra <strong>la instancia de servidor de su sala</strong> (un Durable Object, identificado por el código de sala). Esa instancia tiene el estado autoritativo, valida cada acción y hace broadcast del nuevo estado — <em>redactado según el rol de cada destinatario</em>.</p>
+    <div class="diagram">
+      <div class="lbl">📱 Celulares (vista privada)</div>
+      <div class="nodes">
+        <div class="node redm">🔴 Spymaster rojo<small>ve colores · da pista</small></div>
+        <div class="node bluem">🔵 Spymaster azul<small>ve colores · da pista</small></div>
+        <div class="node redm">🔴 Operativo rojo<small>redactado · adivina</small></div>
+        <div class="node bluem">🔵 Operativo azul<small>redactado · adivina</small></div>
+      </div>
+      <div class="lbl">Clientes neutrales (sin equipo)</div>
+      <div class="nodes">
+        <div class="node tv">📺 Mesa compartida (TV)<small>redactado · revela en cualquier turno</small></div>
+        <div class="node">👀 Espectador<small>redactado · solo mira</small></div>
+      </div>
+      <div class="arrow">↓&nbsp;&nbsp;WebSocket&nbsp;&nbsp;↑</div>
+      <div class="node server">PartyKit Server — Sala <code>ABC123</code><small>Durable Object · estado autoritativo · máquina de estados · valida acciones · redacta por rol</small></div>
+      <div class="arrow">↕</div>
+      <div class="nodes">
+        <div class="node">DO Storage<small>persistencia / reconexión</small></div>
+        <div class="node">Anthropic API<small>sugerencia de pista (IA)</small></div>
+      </div>
+    </div>
+
+    <h3 id="neutrales">4.1 Clientes neutrales y modo "mesa compartida"</h3>
+    <p>Además de los jugadores de equipo, una sala admite <strong>participantes neutrales</strong> (sin equipo). El caso que motiva esto: una <strong>juntada presencial</strong> donde se comparte la partida en un <strong>televisor</strong> y solo los espías juegan desde el celular.</p>
+    <ul>
+      <li><strong>Mesa compartida</strong> (<code>tableBoard</code>): la pantalla grande. No ve colores (es pública), pero <strong>puede revelar cartas en el turno de cualquiera de los dos equipos</strong> — los operativos se juntan alrededor y tocan ahí, sin necesidad de tener cada uno un dispositivo.</li>
+      <li><strong>Espectador</strong> (<code>spectator</code>): mira la partida con la vista redactada, sin poder actuar.</li>
+    </ul>
+    <div class="callout tv"><strong>Setup de juntada:</strong> el TV abre la sala como <code>tableBoard</code> y cada espía entra desde su celular como <code>spymaster</code> (rojo/azul). Los operativos no necesitan dispositivo: ven el tablero en la TV y tocan ahí en su turno.</div>
+    <table>
+      <tr><th>Tipo</th><th>Equipo</th><th>Ve colores</th><th>Da pista</th><th>Revela cartas</th><th>Dispositivo típico</th></tr>
+      <tr><td>Spymaster</td><td>rojo / azul</td><td>✅</td><td>✅ en su turno</td><td>❌</td><td>📱 Celular</td></tr>
+      <tr><td>Operativo</td><td>rojo / azul</td><td>❌</td><td>❌</td><td>✅ en el turno de su equipo</td><td>📱 Celular</td></tr>
+      <tr><td>Mesa compartida</td><td><em>neutral</em></td><td>❌</td><td>❌</td><td>✅ en el turno de <em>cualquier</em> equipo</td><td>📺 TV / pantalla</td></tr>
+      <tr><td>Espectador</td><td><em>neutral</em></td><td>❌</td><td>❌</td><td>❌</td><td>Cualquiera</td></tr>
+    </table>
+    <div class="callout">La <code>tableBoard</code> funciona como un "operativo universal": a efectos de revelar (y terminar turno) actúa por el equipo que esté en turno en ese momento — pero <strong>nunca</strong> ve los colores ocultos, porque es una pantalla pública.</div>
+
+    <h2 id="hosting">5. Hosting y estructura del repo</h2>
+    <p>Un <strong>único repo</strong>. PartyKit guarda server y cliente juntos y comparten TypeScript directamente — no hace falta separar back y front en repos distintos.</p>
+<pre><code><span class="tok-c"># codenames-online/</span>
+party/
+  server.ts      <span class="tok-c">// clase Server: conexiones + máquina de estados + validación</span>
+  game.ts        <span class="tok-c">// generación de tablero + lógica de reglas (pura)</span>
+  types.ts       <span class="tok-c">// tipos compartidos cliente ↔ servidor</span>
+src/
+  components/    <span class="tok-c">// Board, Card (portados de la v1) + lobby, turno, pista…</span>
+  net/           <span class="tok-c">// hook usePartySocket + capa de mensajes</span>
+  App.tsx
+  data/words.ts  <span class="tok-c">// lista de palabras (reusada de la v1)</span>
+partykit.json    <span class="tok-c">// config de deploy</span>
+vite.config.ts
+package.json
+docs/design.html <span class="tok-c">// este documento</span></code></pre>
+    <p><strong>Deploy:</strong> <code>npx partykit deploy</code> sube el server a los Durable Objects de Cloudflare y puede servir también el build de Vite. Un comando, una plataforma, free tier holgado.</p>
+
+    <h2 id="dominio">6. Modelo de dominio</h2>
+    <p>Tipos compartidos por cliente y servidor (<code>party/types.ts</code>):</p>
+<pre><code><span class="tok-k">type</span> <span class="tok-t">Team</span> = <span class="tok-s">'red'</span> | <span class="tok-s">'blue'</span>;
+<span class="tok-k">type</span> <span class="tok-t">CardColor</span> = <span class="tok-s">'red'</span> | <span class="tok-s">'blue'</span> | <span class="tok-s">'neutral'</span> | <span class="tok-s">'assassin'</span>;
+
+<span class="tok-c">// Roles de equipo (requieren team) + roles neutrales (sin team)</span>
+<span class="tok-k">type</span> <span class="tok-t">Role</span> = <span class="tok-s">'spymaster'</span> | <span class="tok-s">'operative'</span> | <span class="tok-s">'tableBoard'</span> | <span class="tok-s">'spectator'</span>;
+<span class="tok-k">type</span> <span class="tok-t">Phase</span> = <span class="tok-s">'lobby'</span> | <span class="tok-s">'awaitingClue'</span> | <span class="tok-s">'guessing'</span> | <span class="tok-s">'finished'</span>;
+
+<span class="tok-k">interface</span> <span class="tok-t">Player</span> {
+  id: <span class="tok-t">string</span>;            <span class="tok-c">// persistente, guardado en localStorage</span>
+  name: <span class="tok-t">string</span>;          <span class="tok-c">// único en la sala; si se repite, se agrega " (n)" con n = 1..9</span>
+  role: <span class="tok-t">Role</span>;
+  team: <span class="tok-t">Team</span> | <span class="tok-k">null</span>;     <span class="tok-c">// spymaster/operative ⇒ Team; tableBoard/spectator ⇒ null</span>
+  connected: <span class="tok-t">boolean</span>;
+  ready: <span class="tok-t">boolean</span>;        <span class="tok-c">// listo en el lobby; cambiar de rol lo resetea a false</span>
+}
+
+<span class="tok-k">interface</span> <span class="tok-t">Card</span> {
+  id: <span class="tok-t">string</span>;
+  word: <span class="tok-t">string</span>;
+  color?: <span class="tok-t">CardColor</span>;     <span class="tok-c">// verdad solo del server; se redacta para no-spymasters</span>
+  revealed: <span class="tok-t">boolean</span>;
+}
+
+<span class="tok-k">interface</span> <span class="tok-t">Clue</span> {
+  word: <span class="tok-t">string</span>;
+  count: <span class="tok-t">number</span>;          <span class="tok-c">// N: cantidad de palabras conectadas</span>
+  team: <span class="tok-t">Team</span>;
+  guessesUsed: <span class="tok-t">number</span>;    <span class="tok-c">// hasta N + 1</span>
+}
+
+<span class="tok-k">interface</span> <span class="tok-t">GameState</span> {
+  phase: <span class="tok-t">Phase</span>;
+  hostId: <span class="tok-t">string</span>;          <span class="tok-c">// anfitrión; único que inicia. Si se va, migra al más antiguo conectado</span>
+  players: <span class="tok-t">Record</span>&lt;<span class="tok-t">string</span>, <span class="tok-t">Player</span>&gt;;
+  board: <span class="tok-t">Card</span>[];
+  startingTeam: <span class="tok-t">Team</span>;       <span class="tok-c">// arranca con 9 cartas</span>
+  turn: <span class="tok-t">Team</span>;               <span class="tok-c">// equipo en turno</span>
+  clue: <span class="tok-t">Clue</span> | <span class="tok-k">null</span>;        <span class="tok-c">// pista vigente durante 'guessing'</span>
+  remaining: { red: <span class="tok-t">number</span>; blue: <span class="tok-t">number</span> };
+  winner: <span class="tok-t">Team</span> | <span class="tok-k">null</span>;
+}</code></pre>
+
+    <h2 id="estados">7. Máquina de estados</h2>
+    <p>Cada sala recorre estas fases. El servidor es el único que puede transicionar, y solo ante acciones válidas del participante correcto.</p>
+    <div class="states">
+      <span class="state start">lobby</span><span class="arrow">→</span>
+      <span class="state">awaitingClue</span><span class="arrow">⇄</span>
+      <span class="state">guessing</span><span class="arrow">→</span>
+      <span class="state end">finished</span>
+    </div>
+    <table>
+      <tr><th>Desde</th><th>Acción</th><th>Hacia</th><th>Condición / efecto</th></tr>
+      <tr><td><code>lobby</code></td><td><code>startGame</code><br><span class="lbl">solo host</span></td><td><code>awaitingClue</code></td><td>Solo el <strong>host</strong> inicia, y solo si se cumple la condición de arranque (ver §7.1); genera tablero; <code>turn = startingTeam</code></td></tr>
+      <tr><td><code>awaitingClue</code></td><td><code>giveClue</code></td><td><code>guessing</code></td><td>Solo el spymaster del equipo en turno; palabra no presente en el tablero</td></tr>
+      <tr><td><code>guessing</code></td><td><code>guess</code> (color propio)</td><td><code>guessing</code></td><td><code>remaining[turn]--</code>; si llega a 0 → <code>finished</code></td></tr>
+      <tr><td><code>guessing</code></td><td><code>guess</code> (neutral)</td><td><code>awaitingClue</code></td><td>Cambia el turno</td></tr>
+      <tr><td><code>guessing</code></td><td><code>guess</code> (rival)</td><td><code>awaitingClue</code></td><td><code>remaining[rival]--</code>; si llega a 0 → gana el rival; si no, cambia el turno</td></tr>
+      <tr><td><code>guessing</code></td><td><code>guess</code> (asesino)</td><td><code>finished</code></td><td>Derrota instantánea: gana el otro equipo</td></tr>
+      <tr><td><code>guessing</code></td><td>intentos agotados (N+1)</td><td><code>awaitingClue</code></td><td>Cambia el turno automáticamente</td></tr>
+      <tr><td><code>guessing</code></td><td><code>endTurn</code></td><td><code>awaitingClue</code></td><td>El equipo (u la mesa) corta antes; cambia el turno</td></tr>
+      <tr><td><code>finished</code></td><td><code>newGame</code><br><span class="lbl">solo host</span></td><td><code>awaitingClue</code></td><td>Revancha rápida: nuevo tablero, <strong>mismos equipos</strong></td></tr>
+      <tr><td><em>cualquiera</em></td><td><code>returnToLobby</code><br><span class="lbl">solo host</span></td><td><code>lobby</code></td><td>Volver al lobby para rearmar equipos/roles (revancha o abortar partida); resetea los <code>ready</code></td></tr>
+    </table>
+
+    <h3 id="lobby-flow">7.1 Lobby: roles, "ready" y arranque</h3>
+    <p>El arranque no es libre: lo controla el <strong>host</strong> y solo cuando todos están listos.</p>
+    <ul>
+      <li><strong>Host (anfitrión):</strong> el primer participante en entrar a la sala. Es el único que puede iniciar la partida. Si se desconecta, el rol migra automáticamente al <strong>participante conectado más antiguo</strong> (no hace falta que sea de un equipo: puede ser la propia TV).</li>
+      <li><strong>Al entrar:</strong> cada uno elige equipo (rojo/azul) con rol spymaster u operativo, o se queda <strong>neutral</strong> (mesa compartida / espectador). Por defecto, al entrar se es <em>espectador</em> hasta elegir.</li>
+      <li><strong>Cambiar de equipo/rol</strong> resetea tu estado a <em>no listo</em> (hay que volver a confirmar).</li>
+      <li><strong>"Ready":</strong> cada jugador de equipo se marca listo cuando está. Los neutrales (mesa/espectador) <strong>no bloquean</strong> el arranque.</li>
+      <li><strong>Roles bloqueados al iniciar:</strong> una vez empezada la partida no se puede cambiar de equipo/rol. Para reorganizar, el host usa <em>"Cambiar equipos"</em> (<code>returnToLobby</code>).</li>
+    </ul>
+    <p>El botón <strong>"Iniciar partida"</strong> (visible solo para el host) se habilita cuando se cumplen las tres condiciones:</p>
+    <ol>
+      <li>Ambos equipos tienen <strong>≥1 spymaster</strong>.</li>
+      <li>Cada equipo puede <strong>adivinar</strong>: ≥1 operativo en ese equipo <em>o</em> una mesa compartida en la sala.</li>
+      <li><strong>Todos los jugadores de equipo</strong> (spymaster/operativo) están <em>ready</em>.</li>
+    </ol>
+    <div class="callout"><strong>Decidido:</strong> los <strong>neutrales no se marcan ready</strong> ni bloquean el arranque — un espectador que entra tarde no debería frenar el inicio, y la TV suele estar lista antes que nadie.</div>
+
+    <h2 id="reglas">8. Reglas del juego implementadas</h2>
+    <ul>
+      <li><strong>Tablero:</strong> 25 cartas — 9 del equipo inicial, 8 del otro, 7 neutrales, 1 asesino.</li>
+      <li><strong>Roles:</strong> cada equipo tiene al menos un spymaster (ve los colores); las adivinanzas las hacen los operativos del equipo <em>o</em> una <strong>mesa compartida</strong> neutral (ver §4.1).</li>
+      <li><strong>Pista:</strong> el spymaster del turno envía una palabra + un número N. La palabra no puede estar en el tablero.</li>
+      <li><strong>Adivinanzas:</strong> los operativos del turno (o la mesa) revelan cartas; tienen hasta <strong>N + 1</strong> intentos.</li>
+      <li><strong>Resolución por carta:</strong> color propio → siguen; neutral → fin de turno; rival → fin de turno y ayuda al rival; asesino → derrota instantánea.</li>
+      <li><strong>Cortar antes:</strong> el equipo puede terminar su turno voluntariamente.</li>
+      <li><strong>Victoria:</strong> el primer equipo en revelar todas sus cartas gana.</li>
+    </ul>
+
+    <h2 id="anticheat">9. Anti-cheat: redacción por rol</h2>
+    <div class="callout key"><strong>El punto crítico del multiplayer real:</strong> no se puede confiar en el cliente. En la v1, el modo "Espía" es un toggle local — cualquiera lo prende y ve los colores. En la v2, <strong>los colores ocultos nunca viajan</strong> al cliente de quien no es spymaster.</div>
+    <p>El servidor arma una vista distinta por destinatario antes de cada envío:</p>
+    <ul>
+      <li><strong>Spymaster:</strong> recibe el <code>board</code> completo, con <code>color</code> en cada carta.</li>
+      <li><strong>Operativo, mesa compartida y espectador:</strong> reciben el board <strong>redactado</strong> — el campo <code>color</code> se omite en toda carta no revelada; solo aparece cuando <code>revealed === true</code>. Esto es <em>especialmente</em> crítico en la <strong>mesa compartida</strong>, que es una pantalla pública mirada por todos.</li>
+    </ul>
+<pre><code><span class="tok-k">function</span> <span class="tok-t">viewFor</span>(state: <span class="tok-t">GameState</span>, role: <span class="tok-t">Role</span>): <span class="tok-t">GameState</span> {
+  <span class="tok-k">if</span> (role === <span class="tok-s">'spymaster'</span>) <span class="tok-k">return</span> state;        <span class="tok-c">// único rol que ve colores</span>
+  <span class="tok-k">return</span> {
+    ...state,
+    board: state.board.map(c =&gt;
+      c.revealed ? c : { ...c, color: <span class="tok-k">undefined</span> }   <span class="tok-c">// se borra el color oculto</span>
+    ),
+  };
+}</code></pre>
+
+    <h2 id="protocolo">10. Protocolo de mensajes</h2>
+    <h3>Cliente → Servidor</h3>
+    <table>
+      <tr><th>Mensaje</th><th>Payload</th><th>Quién / cuándo</th></tr>
+      <tr><td><code>join</code></td><td><code>{ name }</code></td><td>Al conectar a la sala</td></tr>
+      <tr><td><code>setRole</code></td><td><code>{ role, team }</code></td><td>En el lobby; <code>team = null</code> para roles neutrales. Resetea <code>ready</code></td></tr>
+      <tr><td><code>setReady</code></td><td><code>{ value }</code></td><td>En el lobby; marca/desmarca al participante como listo</td></tr>
+      <tr><td><code>startGame</code></td><td>—</td><td><strong>Solo el host</strong>, en el lobby, con la condición de arranque cumplida (§7.1)</td></tr>
+      <tr><td><code>giveClue</code></td><td><code>{ word, count }</code></td><td>Spymaster del turno, en <code>awaitingClue</code></td></tr>
+      <tr><td><code>guess</code></td><td><code>{ cardId }</code></td><td>Operativo del turno <em>o</em> mesa compartida, en <code>guessing</code></td></tr>
+      <tr><td><code>endTurn</code></td><td>—</td><td>Operativo del turno <em>o</em> mesa compartida, en <code>guessing</code></td></tr>
+      <tr><td><code>requestClueSuggestion</code></td><td>—</td><td>Spymaster del turno (feature IA)</td></tr>
+      <tr><td><code>newGame</code></td><td>—</td><td><strong>Solo host</strong>, en <code>finished</code>: revancha con los mismos equipos</td></tr>
+      <tr><td><code>returnToLobby</code></td><td>—</td><td><strong>Solo host</strong>: vuelve al lobby (rearmar equipos / abortar); resetea <code>ready</code></td></tr>
+    </table>
+    <h3>Servidor → Cliente</h3>
+    <table>
+      <tr><th>Mensaje</th><th>Payload</th><th>Destino</th></tr>
+      <tr><td><code>state</code></td><td><code>GameState</code> (redactado según rol)</td><td>Broadcast en cada cambio</td></tr>
+      <tr><td><code>clueSuggestion</code></td><td><code>{ word, count, reasoning }</code></td><td>Solo al spymaster que la pidió</td></tr>
+      <tr><td><code>error</code></td><td><code>{ message }</code></td><td>Al emisor de una acción inválida</td></tr>
+    </table>
+    <div class="callout">Con 25 cartas, mandar el <code>GameState</code> completo (redactado) en cada cambio es lo más simple y rinde de sobra. Nada de diffs ni eventos granulares por ahora.</div>
+
+    <h2 id="flujo">11. Flujo de una ronda</h2>
+    <ol class="seq">
+      <li>El spymaster rojo (turno) envía <code>giveClue {"OCÉANO", 2}</code>. El server valida y pasa a <code>guessing</code>.</li>
+      <li>Broadcast del nuevo <code>state</code>: todos ven la pista. Tienen hasta 3 intentos los operativos rojos — o quien toque en la TV (mesa compartida).</li>
+      <li>Se revela <code>"BARCO"</code> (tocando en la TV o en un celular). El server resuelve: es roja → <code>remaining.red--</code>, sigue el turno.</li>
+      <li>Adivinan <code>"AGUA"</code> (también roja) → sigue. Luego arriesgan <code>"NUBE"</code> → es neutral: fin de turno.</li>
+      <li>El server cambia <code>turn = blue</code>, vuelve a <code>awaitingClue</code> y hace broadcast. Ahora juega el spymaster azul.</li>
+      <li>Cuando un equipo lleva su <code>remaining</code> a 0 (o alguien toca el asesino), <code>phase = finished</code> y se anuncia el ganador → 🎉 confeti (también en la TV).</li>
+    </ol>
+
+    <h2 id="frontend">12. Frontend</h2>
+    <h3>Se reusa de la v1</h3>
+    <ul>
+      <li><code>Board</code> y <code>Card</code> (grilla 5×5, caras, flip 3D).</li>
+      <li>El <strong>flip dramático</strong> ("Suspenso final") y el <strong>confeti de victoria</strong> — ahora disparados por el estado sincronizado.</li>
+      <li>Tema oscuro, estilos, lista de palabras (<code>data/words.ts</code>).</li>
+    </ul>
+    <h3>Nuevo</h3>
+    <ul>
+      <li><strong>Pantalla de entrada:</strong> crear / unirse a sala + nombre.</li>
+      <li><strong>Lobby:</strong> elegir equipo y rol — incluyendo neutrales (<em>mesa compartida</em> o <em>espectador</em>); ver la lista de participantes con su estado <em>ready</em>; cada jugador se marca listo; el <strong>host</strong> ve el botón "Iniciar partida" (deshabilitado hasta cumplir la condición de §7.1).</li>
+      <li><strong>HUD de partida:</strong> indicador de turno, pista vigente (palabra + número), intentos restantes, botón "terminar turno".</li>
+      <li><strong>Panel del spymaster:</strong> input de pista + número (solo visible en su turno).</li>
+      <li><strong>Pantalla de fin:</strong> el host elige entre <em>"Nueva partida"</em> (mismos equipos) o <em>"Cambiar equipos"</em> (volver al lobby).</li>
+      <li><strong>Modo mesa / TV:</strong> layout de pantalla grande para la <code>tableBoard</code> — tablero protagonista, pista y turno bien visibles, tap para revelar; sin controles de rol propios.</li>
+      <li><strong>Capa de red:</strong> hook <code>usePartySocket</code> que recibe <code>state</code> y envía acciones; reemplaza al <code>useReducer</code> local.</li>
+    </ul>
+
+    <h2 id="ia">13. Sugerencia de pista (IA)</h2>
+    <p>El backend desbloquea limpio el feature que veníamos charlando: el server tiene la <code>ANTHROPIC_API_KEY</code> en una variable de entorno y responde a <code>requestClueSuggestion</code> del spymaster del turno.</p>
+    <ul>
+      <li>El server arma el prompt con el estado <strong>real</strong> del tablero (palabras de cada equipo, neutrales, asesino) — info que ya tiene de forma autoritativa.</li>
+      <li>Modelo <code>claude-haiku-4-5</code> (rápido y barato; alcanza de sobra).</li>
+      <li>Restricciones en el prompt: una sola palabra, que <strong>no</strong> esté en el tablero ni sea derivada; el número de palabras que conecta; evitar a toda costa el asesino.</li>
+      <li><strong>Rate-limit por sala</strong> para acotar costo, ya que la key vive segura en el server.</li>
+      <li>La respuesta se envía <strong>solo</strong> al spymaster que la pidió (<code>clueSuggestion</code>) — nunca a la TV ni a los operativos.</li>
+    </ul>
+
+    <h2 id="persistencia">14. Persistencia y reconexión</h2>
+    <ul>
+      <li><strong>En memoria</strong> mientras la sala está viva (lo natural de un Durable Object).</li>
+      <li><strong>Snapshot en DO Storage</strong> tras cada cambio, para sobrevivir reinicios y permitir reconexión: si un participante recarga, su <code>playerId</code> (de <code>localStorage</code>) lo reconecta a su asiento — útil para la TV, que no querés que pierda su lugar.</li>
+      <li><strong>Sala abandonada:</strong> si <em>todos</em> los participantes quedan desconectados, la sala (y la partida en curso) se descarta tras <strong>5 minutos</strong> sin que nadie se reconecte.</li>
+    </ul>
+
+    <h2 id="roadmap">15. Roadmap de implementación</h2>
+    <table>
+      <tr><th>Fase</th><th>Entregable</th></tr>
+      <tr><td><span class="pill gray">0</span></td><td>Scaffold: PartyKit + Vite, <code>types.ts</code>, server con eco básico, deploy de prueba.</td></tr>
+      <tr><td><span class="pill gray">1</span></td><td>Lobby: join, elegir equipo/rol (incl. neutrales), lista de participantes, empezar partida.</td></tr>
+      <tr><td><span class="pill gray">2</span></td><td>Loop central autoritativo: tablero, pista, adivinanzas, turnos, victoria + redacción anti-cheat. Permisos de mesa compartida.</td></tr>
+      <tr><td><span class="pill gray">3</span></td><td>Port de UI: Board/Card/confeti/flip + HUD de turno, pista e intentos + modo mesa/TV.</td></tr>
+      <tr><td><span class="pill gray">4</span></td><td>Reconexión y persistencia (snapshot en DO Storage).</td></tr>
+      <tr><td><span class="pill gray">5</span></td><td>Sugerencia de pista por IA (endpoint + rate-limit).</td></tr>
+      <tr><td><span class="pill gray">6</span></td><td>Pulido: mobile, tema oscuro, deploy final a Cloudflare.</td></tr>
+    </table>
+
+    <h2 id="abiertas">16. Parámetros y configuración</h2>
+    <p>Decisiones cerradas que parametrizan la implementación:</p>
+    <table>
+      <tr><th>Parámetro</th><th>Decisión</th></tr>
+      <tr><td>Tope por equipo</td><td><strong>10 jugadores</strong> por equipo. No es un límite técnico de PartyKit (un Durable Object sostiene miles de conexiones); lo enforzamos nosotros.</td></tr>
+      <tr><td>Mesas compartidas</td><td>Se permite <strong>más de una</strong> por sala.</td></tr>
+      <tr><td>Permisos de la mesa</td><td>Puede revelar y <strong>terminar turno</strong>; si además es host, puede iniciar y relanzar partida.</td></tr>
+      <tr><td>Identidad</td><td>Solo <strong>nombre</strong>. Si se repite en la sala, se le agrega <code>" (n)"</code> con n entero de 1 a 9.</td></tr>
+      <tr><td>Palabras</td><td>Se <strong>reutiliza</strong> la lista en español de la v1 (<code>words.ts</code>). Sin mazos ni idiomas extra.</td></tr>
+      <tr><td>Variantes</td><td><strong>Ninguna</strong> (sin timer por turno ni tableros alternativos).</td></tr>
+      <tr><td>Cambio de rol</td><td><strong>Bloqueado</strong> una vez iniciada la partida; para reorganizar se vuelve al lobby.</td></tr>
+      <tr><td>Host</td><td>Migra al <strong>más antiguo conectado</strong>. Sin expulsar ni reasignar roles.</td></tr>
+      <tr><td>Sala abandonada</td><td>Se descarta a los <strong>5 min</strong> con todos los participantes desconectados.</td></tr>
+    </table>
+
+    <div class="footer">
+      Codenames Online — documento de diseño v2 · rev. 4 (diseño cerrado) · generado el 2026-06-04 · listo para implementar.
+    </div>
+  </main>
+</div>
+</body>
+</html>

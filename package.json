@@ -1,0 +1,26 @@
+{
+  "name": "codenames-online",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:party": "partykit dev",
+    "dev:web": "vite",
+    "build": "tsc && vite build",
+    "deploy": "partykit deploy",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "partysocket": "^1.1.19",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "partykit": "^0.0.115",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.0"
+  }
+}
