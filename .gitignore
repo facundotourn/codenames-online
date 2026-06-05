@@ -2,4 +2,5 @@ node_modules
 dist
 .partykit
 *.log
+*.tmp
 .DS_Store
