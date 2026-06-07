@@ -7,11 +7,15 @@ import { MAX_PER_TEAM } from './types';
 import { startBlockReason, viewFor, isTeamRole } from './rules';
 import { generateBoard } from './game';
 
-// ── Fase 1 ──
-// Lobby completo server-authoritative + arranque de partida: elección de
-// rol/equipo (con cap por equipo), "ready", migración de host, validación de
-// inicio (§7.1), generación de tablero y redacción anti-cheat por rol.
-// El loop de juego (pista/adivinanzas/turnos) llega en la Fase 2.
+// Normaliza para comparar palabras (sin acentos ni mayúsculas).
+function normalize(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// ── Fases 1-2 ──
+// Lobby server-authoritative (roles, ready, host, arranque validado §7.1) +
+// loop de juego completo: pista del jefe, adivinanzas, conteo de N+1 intentos,
+// cambios de turno, victoria/derrota y redacción anti-cheat por rol.
 export default class Server implements Party.Server {
   constructor(readonly room: Party.Room) {}
 
@@ -93,8 +97,49 @@ export default class Server implements Party.Server {
         break;
       }
 
+      case 'giveClue': {
+        if (this.phase !== 'awaitingClue') return this.fail(sender, 'No es momento de dar una pista.');
+        if (player.role !== 'spymaster' || player.team !== this.turn) {
+          return this.fail(sender, 'Solo el jefe de espías del equipo en turno puede dar la pista.');
+        }
+        const word = msg.word.trim();
+        const count = Math.floor(msg.count);
+        if (!word) return this.fail(sender, 'La pista no puede estar vacía.');
+        if (!(count >= 1 && count <= 9)) return this.fail(sender, 'El número debe estar entre 1 y 9.');
+        if (this.board.some(c => !c.revealed && normalize(c.word) === normalize(word))) {
+          return this.fail(sender, 'La pista no puede ser una palabra en juego del tablero.');
+        }
+        this.clue = { word, count, team: this.turn, guessesUsed: 0 };
+        this.phase = 'guessing';
+        break;
+      }
+
+      case 'guess': {
+        if (this.phase !== 'guessing') return this.fail(sender, 'No es momento de adivinar.');
+        if (!this.canGuess(player)) return this.fail(sender, 'No podés revelar cartas en este turno.');
+        const card = this.board.find(c => c.id === msg.cardId);
+        if (!card || card.revealed) return;
+        card.revealed = true;
+        this.resolveGuess(card);
+        break;
+      }
+
+      case 'endTurn': {
+        if (this.phase !== 'guessing') return;
+        if (!this.canGuess(player)) return this.fail(sender, 'No podés terminar el turno ahora.');
+        this.passTurn();
+        break;
+      }
+
+      case 'newGame': {
+        if (sender.id !== this.hostId) return this.fail(sender, 'Solo el host puede empezar una nueva partida.');
+        if (this.phase !== 'finished') return;
+        this.startGame();
+        break;
+      }
+
       default:
-        return this.fail(sender, `Acción "${msg.type}" todavía no implementada (llega en la Fase 2).`);
+        return this.fail(sender, `Acción "${msg.type}" todavía no implementada.`);
     }
 
     this.broadcastState();
@@ -133,6 +178,48 @@ export default class Server implements Party.Server {
     this.winner = null;
     this.remaining = { red: 0, blue: 0 };
     for (const p of this.players.values()) p.ready = false;
+  }
+
+  private canGuess(player: Player): boolean {
+    if (player.role === 'tableBoard') return true;
+    return player.role === 'operative' && player.team === this.turn;
+  }
+
+  // Resuelve una carta revelada: acierto → sigue (hasta agotar N+1), neutral o
+  // carta del rival → fin de turno, asesino → derrota; vaciar el color de un
+  // equipo → victoria de ese equipo.
+  private resolveGuess(card: Card) {
+    const turn = this.turn;
+    const other: Team = turn === 'red' ? 'blue' : 'red';
+
+    if (card.color === 'assassin') {
+      this.phase = 'finished';
+      this.winner = other;
+      return;
+    }
+    if (card.color === 'red' || card.color === 'blue') {
+      this.remaining[card.color]--;
+      if (this.remaining[card.color] === 0) {
+        this.phase = 'finished';
+        this.winner = card.color;
+        return;
+      }
+      if (card.color === turn) {
+        if (this.clue) {
+          this.clue.guessesUsed++;
+          if (this.clue.guessesUsed >= this.clue.count + 1) this.passTurn();
+        }
+        return;
+      }
+    }
+    // neutral o carta del rival
+    this.passTurn();
+  }
+
+  private passTurn() {
+    this.turn = this.turn === 'red' ? 'blue' : 'red';
+    this.clue = null;
+    this.phase = 'awaitingClue';
   }
 
   // ── Helpers ──
