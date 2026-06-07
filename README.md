@@ -5,8 +5,8 @@ en un backend [PartyKit](https://www.partykit.io/) (Cloudflare Durable Objects) 
 frontend React + Vite. Reglas completas (spymaster, pista, turnos, adivinanzas), con
 soporte para una "mesa compartida" en un televisor durante juntadas presenciales.
 
-> Diseño completo en [`docs/design.html`](docs/design.html). Estado actual: **Fase 3
-> (port de UI: flip 3D, suspenso, confeti y modo mesa/TV)** del roadmap.
+> Diseño completo en [`docs/design.html`](docs/design.html). Estado actual: **Fase 4
+> (reconexión, persistencia, URL de sala y viabilidad en partida)** del roadmap.
 
 ## Desarrollo
 
