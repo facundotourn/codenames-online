@@ -7,6 +7,10 @@
   --text: #1f2330;
   --muted: #6b7280;
   --border: #e5e7eb;
+  --card-front: linear-gradient(160deg, #ffffff 0%, #f2f4fb 100%);
+  --card-border: rgba(90, 110, 160, 0.14);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 14px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 6px 24px rgba(0, 0, 0, 0.13), 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 * { box-sizing: border-box; }
@@ -105,7 +109,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .badge.you { background: #e8effd; color: #1a40b8; }
 .badge.ready { background: #e7f6ec; color: #15803d; }
 
-.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .err { color: #b91c1c; font-size: 13px; margin: 12px 0 0; }
 
 .prole { color: var(--muted); font-size: 12px; }
@@ -175,42 +179,183 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .score-red { color: var(--red); font-weight: 800; }
 .score-blue { color: var(--blue); font-weight: 800; }
 
+/* ── Settings gear menu ── */
+.head-actions { display: flex; align-items: center; gap: 8px; }
+.settings-wrapper { position: relative; }
+.settings-btn {
+  padding: 7px 11px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 17px;
+  line-height: 1;
+}
+.settings-btn:hover, .settings-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.settings-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  min-width: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.settings-label { display: inline-flex; align-items: center; gap: 6px; }
+.beta-badge {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+
+/* Dark-mode-style toggle switch */
+.switch { position: relative; display: inline-block; width: 48px; height: 26px; cursor: pointer; flex-shrink: 0; }
+.switch input { display: none; }
+.slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 26px; transition: background 0.3s; }
+.slider::before {
+  content: '';
+  position: absolute;
+  height: 20px; width: 20px;
+  left: 3px; bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.switch input:checked + .slider { background: var(--accent); }
+.switch input:checked + .slider::before { transform: translateX(22px); }
+
 /* ── Board ── */
 .board {
+  width: 100%;
+  aspect-ratio: 3 / 2;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-template-rows: repeat(5, 1fr);
+  gap: clamp(4px, 1vw, 7px);
+  margin-top: 22px;
 }
-.cell {
-  aspect-ratio: 1.6;
+
+/* ── Card 3D flip ── */
+.card-outer {
+  position: relative;
+  border-radius: 10px;
+  transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s ease;
+}
+.card-outer.can-reveal { cursor: pointer; }
+
+.card-inner-3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  border-radius: 10px;
+  transform: perspective(900px) rotateY(0deg);
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+.card-outer.flipped .card-inner-3d { transform: perspective(900px) rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
   padding: 4px;
-  border-radius: 7px;
-  background: #f3ead7;
-  color: #3a3326;
-  border: 1px solid #e3d8c0;
-  overflow: hidden;
-  user-select: none;
-  transition: transform 0.08s, filter 0.08s;
 }
-/* color-* = colores fuertes (cartas reveladas, y base del "peek" del jefe) */
-.cell.color-red { background: var(--red); color: #fff; border-color: #c81e1e; }
-.cell.color-blue { background: var(--blue); color: #fff; border-color: #1a40b8; }
-.cell.color-neutral { background: #cbb893; color: #3a3326; border-color: #b3a079; }
-.cell.color-assassin { background: #1f2937; color: #fff; border-color: #000; }
-/* peek = vista del jefe de espías sobre cartas SIN revelar: color tenue */
-.cell.peek { opacity: 0.5; }
-/* revealed = carta destapada: color pleno + marca de "usada" */
-.cell.revealed { opacity: 1; box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.14); }
-.cell.clickable { cursor: pointer; }
-.cell.clickable:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.card-front {
+  background: var(--card-front);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-outer.can-reveal:hover .card-front { transform: translateY(-3px) scale(1.01); box-shadow: var(--card-shadow-hover); }
+.card-outer.can-reveal:active .card-front { transform: scale(0.97); }
+
+.card-back { transform: rotateY(180deg); color: #fff; }
+
+/* Colores de equipo en la cara trasera */
+.team-r .card-back { background: linear-gradient(145deg, #f87171 0%, #c81e1e 100%); box-shadow: 0 4px 18px rgba(200, 30, 30, 0.45); }
+.team-a .card-back { background: linear-gradient(145deg, #60a5fa 0%, #1a40b8 100%); box-shadow: 0 4px 18px rgba(26, 64, 184, 0.45); }
+.team-n .card-back { background: linear-gradient(145deg, #d8d0c6 0%, #a89e92 100%); color: #3a3128; box-shadow: 0 4px 14px rgba(80, 70, 55, 0.25); }
+.team-x .card-back { background: linear-gradient(145deg, #4b5563 0%, #0f1117 100%); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5); }
+
+.card-word {
+  font-size: clamp(7px, 2vw, 15px);
+  font-weight: 900;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  letter-spacing: -0.01em;
+}
+
+/* ── Vista del jefe de espías (cartas sin revelar, color tenue en la cara delantera) ── */
+.spy.team-r .card-front { border-color: rgba(239, 68, 68, 0.5); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15), var(--card-shadow); }
+.spy.team-r .card-front .card-word { color: #ef4444; }
+.spy.team-a .card-front { border-color: rgba(59, 130, 246, 0.5); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15), var(--card-shadow); }
+.spy.team-a .card-front .card-word { color: #3b82f6; }
+.spy.team-x .card-front { background: linear-gradient(160deg, #374151 0%, #1f2937 100%); border-color: #4b5563; }
+.spy.team-x .card-front .card-word { color: #f1f5f9; }
+.spy.team-n .card-front .card-word { color: var(--text); }
+
+/* ── Suspenso dramático ── */
+.dramatic { z-index: 50; animation: dramaticZoom 8s linear forwards; }
+@keyframes dramaticZoom { from { transform: scale(1); } to { transform: scale(1.45); } }
+
+/* Oculta la palabra solo en una cara delantera pintada (color fake/real a mitad de flip) */
+.front-r .card-front .card-word,
+.front-a .card-front .card-word,
+.front-n .card-front .card-word,
+.front-x .card-front .card-word { opacity: 0; }
+
+/* Colores fake en la cara trasera (los 4 equipos) */
+.dramatic-r .card-back { background: linear-gradient(145deg, #f87171 0%, #c81e1e 100%) !important; color: #fff !important; box-shadow: 0 4px 16px rgba(200, 30, 30, 0.4) !important; }
+.dramatic-a .card-back { background: linear-gradient(145deg, #60a5fa 0%, #1a40b8 100%) !important; color: #fff !important; box-shadow: 0 4px 16px rgba(26, 64, 184, 0.4) !important; }
+.dramatic-n .card-back { background: linear-gradient(145deg, #d8d0c6 0%, #a89e92 100%) !important; color: #3a3128 !important; box-shadow: 0 4px 12px rgba(80, 70, 55, 0.25) !important; }
+.dramatic-x .card-back { background: linear-gradient(145deg, #4b5563 0%, #0f1117 100%) !important; color: #f1f5f9 !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important; }
+
+/* Colores fake en la cara delantera (mismos gradientes, palabra oculta) */
+.front-r .card-front { background: linear-gradient(145deg, #f87171 0%, #c81e1e 100%) !important; border-color: transparent !important; box-shadow: 0 4px 16px rgba(200, 30, 30, 0.4) !important; }
+.front-a .card-front { background: linear-gradient(145deg, #60a5fa 0%, #1a40b8 100%) !important; border-color: transparent !important; box-shadow: 0 4px 16px rgba(26, 64, 184, 0.4) !important; }
+.front-n .card-front { background: linear-gradient(145deg, #d8d0c6 0%, #a89e92 100%) !important; border-color: transparent !important; box-shadow: 0 4px 12px rgba(80, 70, 55, 0.25) !important; }
+.front-x .card-front { background: linear-gradient(145deg, #4b5563 0%, #0f1117 100%) !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important; }
+
+/* ── Modo mesa / TV: pantalla grande, tablero protagonista ── */
+.screen.tv { max-width: 1100px; padding: 24px 28px 60px; }
+.screen.tv h2 { font-size: 26px; }
+.screen.tv .status-bar, .screen.tv .banner { font-size: 22px; padding: 16px 22px; }
+.screen.tv .banner { font-size: 30px; }
+.screen.tv .status-bar .clue { font-size: 24px; font-weight: 700; }
+.screen.tv .card-word { font-size: clamp(12px, 1.9vw, 26px); }
+.screen.tv .actions button { font-size: 17px; padding: 14px 22px; }
 
 @media (max-width: 520px) {
   .teams, .role-grid { grid-template-columns: 1fr; }
-  .cell { font-size: 9px; }
 }

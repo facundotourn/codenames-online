@@ -51,7 +51,7 @@ export default function App() {
   return (
     <div className="screen">
       <h1><span className="r">Code</span><span className="b">names</span> Online</h1>
-      <p className="tag">Fase 0 — scaffold: lobby en tiempo real con PartyKit</p>
+      <p className="tag">Multiplayer en tiempo real · creá una sala y compartí el código</p>
 
       <div className="form">
         <label>

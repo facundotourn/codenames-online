@@ -1,22 +1,89 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { teamLabel } from '../party/rules';
+import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
+import { Board } from './components/Board';
+import { confettiSupported, fireVictoryConfetti } from './confetti';
 
-// Fase 2: tablero interactivo + loop de juego. El pulido visual (portar el flip
-// dramático y el confeti de la v1, modo TV) queda para fases posteriores.
+const lsBool = (key: string, def: boolean) => {
+  const v = localStorage.getItem(key);
+  return v === null ? def : v === '1';
+};
+
 export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
   const [clueWord, setClueWord] = useState('');
   const [clueCount, setClueCount] = useState(1);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [dramatic, setDramatic] = useState(() => lsBool('opt.dramatic', false));
+  const [confettiOn, setConfettiOn] = useState(() => lsBool('opt.confetti', true));
+
+  // Cartas con su flip de reveal en curso: mientras haya alguna, diferimos el
+  // anuncio de victoria (banner + confeti) para no spoilear el suspenso.
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
+
+  const menuRef = useRef<HTMLDivElement>(null);
+  const prevBoard = useRef<Map<string, Card>>(new Map());
+  const prevRemaining = useRef(state.remaining);
+  const confettiFired = useRef(false);
+  const [lastRevealedId, setLastRevealedId] = useState<string | null>(null);
 
   const isHost = state.hostId === me?.id;
+  const isTV = me?.role === 'tableBoard';
   const finished = state.phase === 'finished';
+  const seesColors = me?.role === 'spymaster' || finished;
 
   const canGuess = !!me && (me.role === 'tableBoard' || (me.role === 'operative' && me.team === state.turn));
   const guessingNow = state.phase === 'guessing' && canGuess && !finished;
   const myClueTurn = me?.role === 'spymaster' && me.team === state.turn && state.phase === 'awaitingClue';
 
   const guessesLeft = state.clue ? state.clue.count + 1 - state.clue.guessesUsed : 0;
+
+  // El suspenso aplica al reveal en curso si el ajuste está activo y un equipo
+  // estaba en 1 carta ANTES de este reveal (prevRemaining aún no se actualizó).
+  const isTense = dramatic && (prevRemaining.current.red === 1 || prevRemaining.current.blue === 1);
+
+  // Cartas reveladas en esta actualización (diff contra el board anterior).
+  const justRevealed = state.board
+    .filter(c => c.revealed && !prevBoard.current.get(c.id)?.revealed)
+    .map(c => c.id);
+
+  // El anuncio de victoria espera a que el flip de la carta decisiva aterrice.
+  const showWin = finished && pending.size === 0 && justRevealed.length === 0;
+  const gameOverId = finished ? lastRevealedId : null;
   const assassinHit = state.board.some(c => c.color === 'assassin' && c.revealed);
+
+  // Tras el render: registrá el board/score actuales y la última carta revelada.
+  useEffect(() => {
+    if (justRevealed.length) setLastRevealedId(justRevealed[justRevealed.length - 1]);
+    prevBoard.current = new Map(state.board.map(c => [c.id, c]));
+    prevRemaining.current = state.remaining;
+  });
+
+  // Confeti de victoria: una sola vez, recién cuando el anuncio se muestra.
+  useEffect(() => {
+    if (!showWin) { confettiFired.current = false; return; }
+    if (confettiFired.current || !confettiOn) return;
+    if ((state.winner === 'red' || state.winner === 'blue') && confettiSupported()) {
+      confettiFired.current = true;
+      fireVictoryConfetti(state.winner);
+    }
+  }, [showWin, state.winner, confettiOn]);
+
+  // Cerrar el menú de ajustes al hacer clic afuera.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [menuOpen]);
+
+  const toggleDramatic = (v: boolean) => { setDramatic(v); localStorage.setItem('opt.dramatic', v ? '1' : '0'); };
+  const toggleConfetti = (v: boolean) => { setConfettiOn(v); localStorage.setItem('opt.confetti', v ? '1' : '0'); };
+
+  const onRevealStart = (id: string) => setPending(s => { const n = new Set(s); n.add(id); return n; });
+  const onRevealEnd = (id: string) => setPending(s => { const n = new Set(s); n.delete(id); return n; });
 
   const submitClue = () => {
     const word = clueWord.trim();
@@ -27,19 +94,48 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
   };
 
   return (
-    <div className="screen">
+    <div className={`screen${isTV ? ' tv' : ''}`}>
       <header className="room-head">
         <div>
-          <h2>Partida</h2>
+          <h2>Partida{isTV && ' · mesa'}</h2>
           <p className="tag">
             <span className="score-red">{state.remaining.red}</span> – <span className="score-blue">{state.remaining.blue}</span>
             {me?.role === 'spymaster' && ' · ves los colores'}
           </p>
         </div>
-        <button className="ghost" onClick={onLeave}>Salir</button>
+        <div className="head-actions">
+          <div className="settings-wrapper" ref={menuRef}>
+            <button
+              className={`settings-btn${menuOpen ? ' active' : ''}`}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Opciones"
+            >
+              ⚙
+            </button>
+            {menuOpen && (
+              <div className="settings-dropdown">
+                <div className="settings-row">
+                  <span className="settings-label">Suspenso final <span className="beta-badge">beta</span></span>
+                  <label className="switch">
+                    <input type="checkbox" checked={dramatic} onChange={e => toggleDramatic(e.target.checked)} />
+                    <span className="slider" />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <span>Confeti de victoria</span>
+                  <label className="switch">
+                    <input type="checkbox" checked={confettiOn} onChange={e => toggleConfetti(e.target.checked)} />
+                    <span className="slider" />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+          <button className="ghost" onClick={onLeave}>Salir</button>
+        </div>
       </header>
 
-      {finished && state.winner ? (
+      {showWin && state.winner ? (
         <div className={`banner turn-${state.winner}`}>
           🏆 ¡Ganó el equipo {teamLabel(state.winner)}!
           {assassinHit && ' — tocaron al asesino'}
@@ -80,28 +176,20 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
         </section>
       )}
 
-      <section className="panel">
-        <div className="board">
-          {state.board.map(card => {
-            const clickable = guessingNow && !card.revealed;
-            const colorClass = card.color ? `color-${card.color}` : 'hidden';
-            const stateClass = card.revealed ? 'revealed' : card.color ? 'peek' : '';
-            return (
-              <div
-                key={card.id}
-                className={`cell ${colorClass} ${stateClass}${clickable ? ' clickable' : ''}`}
-                onClick={clickable ? () => send({ type: 'guess', cardId: card.id }) : undefined}
-              >
-                {card.word}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <Board
+        cards={state.board}
+        spy={seesColors}
+        canReveal={guessingNow}
+        gameOverId={gameOverId}
+        isTense={isTense}
+        onReveal={id => send({ type: 'guess', cardId: id })}
+        onRevealStart={onRevealStart}
+        onRevealEnd={onRevealEnd}
+      />
 
-      <section className="panel actions">
+      <section className="actions">
         {guessingNow && <button onClick={() => send({ type: 'endTurn' })}>Terminar turno</button>}
-        {finished && isHost && (
+        {showWin && isHost && (
           <button className="start-btn" onClick={() => send({ type: 'newGame' })}>Nueva partida</button>
         )}
         {isHost && (

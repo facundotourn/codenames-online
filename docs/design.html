@@ -101,7 +101,7 @@
 <div class="layout">
   <nav>
     <div class="brand"><span class="r">Code</span><span class="b">names</span> Online</div>
-    <div class="ver">Documento de diseño · v2 · rev. 4 (diseño cerrado) · 2026-06-04</div>
+    <div class="ver">Documento de diseño · v2 · rev. 6 (backlog de pulido §15.1) · 2026-06-07</div>
     <a href="#vision">1. Visión y objetivo</a>
     <a href="#cambia">2. Qué cambia vs. v1</a>
     <a href="#decisiones">3. Decisiones tomadas</a>
@@ -118,6 +118,7 @@
     <a href="#ia">13. Sugerencia de pista (IA)</a>
     <a href="#persistencia">14. Persistencia y reconexión</a>
     <a href="#roadmap">15. Roadmap</a>
+    <a href="#pulido-backlog" class="sub">15.1 Backlog de pulido (Fase 6)</a>
     <a href="#abiertas">16. Parámetros y configuración</a>
   </nav>
 
@@ -399,7 +400,20 @@ docs/design.html <span class="tok-c">// este documento</span></code></pre>
       <tr><td><span class="pill gray">3</span></td><td>Port de UI: Board/Card/confeti/flip + HUD de turno, pista e intentos + modo mesa/TV.</td></tr>
       <tr><td><span class="pill gray">4</span></td><td>Reconexión y persistencia (snapshot en DO Storage) + viabilidad de la partida en curso: si al desconectarse jugadores un equipo queda sin jefe o sin quién adivine, volver al lobby.</td></tr>
       <tr><td><span class="pill gray">5</span></td><td>Sugerencia de pista por IA (endpoint + rate-limit).</td></tr>
-      <tr><td><span class="pill gray">6</span></td><td>Pulido: mobile, tema oscuro, deploy final a Cloudflare.</td></tr>
+      <tr><td><span class="pill gray">6</span></td><td>Pulido: mobile, tema oscuro, deploy final a Cloudflare. <strong>Backlog de UX en §15.1.</strong></td></tr>
+    </table>
+
+    <h3 id="pulido-backlog">15.1 Backlog de pulido (Fase 6)</h3>
+    <p>Pendientes de UI/UX detectados al probar la Fase 3. No son bugs — la Fase 3 deja el juego <em>funcional</em>; esto es el refinamiento que cierra la Fase 6.</p>
+    <div class="callout"><strong>Línea transversal:</strong> darle a todo un <strong>estilo más propio</strong>, que no se vea tan "default" (tipografía, paleta, espaciados, identidad visual coherente). El resto de los puntos cuelgan de esto.</div>
+    <table>
+      <tr><th>Área</th><th>Pendiente</th></tr>
+      <tr><td><strong>General</strong></td><td><strong>Iconografía:</strong> apoyarse más en íconos para ahorrar texto en pantalla (acciones, roles, estados) en vez de etiquetas largas.</td></tr>
+      <tr><td><strong>Bienvenida</strong></td><td>No queda claro cómo <strong>crear</strong> vs. <strong>unirse</strong> a una sala. Rediseñar para que la distinción sea obvia y la pantalla sea mucho más amigable (jerarquía visual, llamadas a la acción claras).</td></tr>
+      <tr><td><strong>Lobby</strong></td><td>Demasiados botones de texto para acciones básicas (6 botones para elegir rol/equipo). Hacerlo <strong>mucho más intuitivo</strong>: selección de equipo/rol con una interacción más directa y visual (p. ej. cards de equipo, íconos de rol), no una grilla de botones.</td></tr>
+      <tr><td><strong>Lobby</strong></td><td>Darle <strong>más protagonismo a los equipos y a los neutrales</strong> — que la composición de la sala sea el centro de la pantalla, no un panel secundario.</td></tr>
+      <tr><td><strong>Partida</strong></td><td>El <strong>texto quedó demasiado grande</strong> (sobre todo en el HUD / status bar y el modo mesa-TV). Recalibrar escalas tipográficas.</td></tr>
+      <tr><td><strong>Mobile / tema</strong></td><td>Responsive fino (landscape, tamaños de carta en pantallas chicas) y <strong>tema oscuro</strong> portado de la v1 (toggle + variables). Ya previsto en la Fase 6.</td></tr>
     </table>
 
     <h2 id="abiertas">16. Parámetros y configuración</h2>
@@ -419,7 +433,7 @@ docs/design.html <span class="tok-c">// este documento</span></code></pre>
     </table>
 
     <div class="footer">
-      Codenames Online — documento de diseño v2 · rev. 5 (viabilidad en partida → Fase 4) · generado el 2026-06-04 · listo para implementar.
+      Codenames Online — documento de diseño v2 · rev. 6 (backlog de pulido §15.1 para la Fase 6) · actualizado el 2026-06-07.
     </div>
   </main>
 </div>

@@ -42,8 +42,10 @@ export function startBlockReason(players: Player[]): string | null {
 }
 
 // Vista redactada según el rol: solo el jefe de espías ve los colores ocultos.
+// Excepción: con la partida terminada se revela el tablero completo a todos
+// (ya no hay nada que proteger), para mostrar la solución como en la v1.
 export function viewFor(state: GameState, role: Role): GameState {
-  if (role === 'spymaster') return state;
+  if (role === 'spymaster' || state.phase === 'finished') return state;
   return {
     ...state,
     board: state.board.map(c => (c.revealed ? c : { ...c, color: undefined })),
