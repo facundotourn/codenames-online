@@ -4,7 +4,11 @@ import type { GameState, ClientMessage, ServerMessage } from '../party/types';
 import { Lobby } from './Lobby';
 import { GameScreen } from './GameScreen';
 
-const HOST = import.meta.env.VITE_PARTYKIT_HOST ?? 'localhost:1999';
+// En dev, el server PartyKit corre aparte en :1999; en producción el front lo
+// sirve el mismo deploy, así que conectamos al host actual. Se puede forzar con
+// VITE_PARTYKIT_HOST.
+const HOST = import.meta.env.VITE_PARTYKIT_HOST
+  ?? (import.meta.env.DEV ? 'localhost:1999' : window.location.host);
 
 interface Props {
   playerId: string;

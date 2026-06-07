@@ -27,7 +27,9 @@ npm run build       # type-check (tsc) + build del cliente a dist/
 npm run deploy      # partykit deploy → Cloudflare (sirve también dist/)
 ```
 
-> El deploy a Cloudflare todavía no está configurado (pendiente para una próxima etapa).
+> Desplegado en **https://codenames-online.facundotourn.partykit.dev**. En
+> producción el front lo sirve el mismo deploy de PartyKit, así que el cliente se
+> conecta al host actual (`window.location.host`); en dev usa `localhost:1999`.
 
 ## Estructura
 
