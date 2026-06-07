@@ -397,7 +397,7 @@ docs/design.html <span class="tok-c">// este documento</span></code></pre>
       <tr><td><span class="pill gray">1</span></td><td>Lobby: join, elegir equipo/rol (incl. neutrales), lista de participantes, empezar partida.</td></tr>
       <tr><td><span class="pill gray">2</span></td><td>Loop central autoritativo: tablero, pista, adivinanzas, turnos, victoria + redacción anti-cheat. Permisos de mesa compartida.</td></tr>
       <tr><td><span class="pill gray">3</span></td><td>Port de UI: Board/Card/confeti/flip + HUD de turno, pista e intentos + modo mesa/TV.</td></tr>
-      <tr><td><span class="pill gray">4</span></td><td>Reconexión y persistencia (snapshot en DO Storage).</td></tr>
+      <tr><td><span class="pill gray">4</span></td><td>Reconexión y persistencia (snapshot en DO Storage) + viabilidad de la partida en curso: si al desconectarse jugadores un equipo queda sin jefe o sin quién adivine, volver al lobby.</td></tr>
       <tr><td><span class="pill gray">5</span></td><td>Sugerencia de pista por IA (endpoint + rate-limit).</td></tr>
       <tr><td><span class="pill gray">6</span></td><td>Pulido: mobile, tema oscuro, deploy final a Cloudflare.</td></tr>
     </table>
@@ -415,10 +415,11 @@ docs/design.html <span class="tok-c">// este documento</span></code></pre>
       <tr><td>Cambio de rol</td><td><strong>Bloqueado</strong> una vez iniciada la partida; para reorganizar se vuelve al lobby.</td></tr>
       <tr><td>Host</td><td>Migra al <strong>más antiguo conectado</strong>. Sin expulsar ni reasignar roles.</td></tr>
       <tr><td>Sala abandonada</td><td>Se descarta a los <strong>5 min</strong> con todos los participantes desconectados.</td></tr>
+      <tr><td>Viabilidad en partida</td><td>Si en partida un equipo queda <strong>sin jefe</strong> o <strong>sin quién adivine</strong> (agente o mesa), la partida vuelve al lobby. Tratamiento completo junto con la reconexión en la <strong>Fase 4</strong>.</td></tr>
     </table>
 
     <div class="footer">
-      Codenames Online — documento de diseño v2 · rev. 4 (diseño cerrado) · generado el 2026-06-04 · listo para implementar.
+      Codenames Online — documento de diseño v2 · rev. 5 (viabilidad en partida → Fase 4) · generado el 2026-06-04 · listo para implementar.
     </div>
   </main>
 </div>
