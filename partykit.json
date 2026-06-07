@@ -2,5 +2,6 @@
   "$schema": "https://www.partykit.io/schema.json",
   "name": "codenames-online",
   "main": "party/server.ts",
-  "compatibilityDate": "2025-01-01"
+  "compatibilityDate": "2025-01-01",
+  "serve": { "path": "dist", "singlePageApp": true }
 }

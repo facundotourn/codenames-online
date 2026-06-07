@@ -169,6 +169,19 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .status-bar.turn-blue { border-left-color: var(--blue); }
 .status-bar .muted { color: var(--muted); }
 .status-bar .clue { font-size: 15px; }
+.notice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  background: #fef6e7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
 .banner { justify-content: center; font-size: 18px; font-weight: 800; color: #fff; }
 .banner.turn-red { background: var(--red); }
 .banner.turn-blue { background: var(--blue); }

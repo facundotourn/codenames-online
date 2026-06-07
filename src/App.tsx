@@ -1,10 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Room } from './Room';
 
-// Identidad efímera: una por carga de página, así cada pestaña (incluso una pestaña
-// duplicada, que copia el storage) entra como un jugador distinto. La reconexión
-// persistente entre recargas llega en la Fase 4 (ver docs/design.html §14).
-const PLAYER_ID = crypto.randomUUID();
+// Identidad por pestaña, persistida en sessionStorage: una recarga (F5) reconecta
+// al mismo asiento (§14). Como al DUPLICAR una pestaña el navegador copia el
+// sessionStorage, llevamos en localStorage un registro de los ids "vivos" (con
+// heartbeat): si el id ya está activo en otra pestaña, es una duplicada y se
+// acuña uno nuevo — así cada pestaña entra como un jugador distinto.
+const LIVE_KEY = 'livePlayerIds';
+const HEARTBEAT_MS = 4000;
+const STALE_MS = 12000; // un id sin heartbeat reciente se considera muerto (crash)
+
+function readLive(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(LIVE_KEY) ?? '{}'); } catch { return {}; }
+}
+function writeLive(map: Record<string, number>) {
+  localStorage.setItem(LIVE_KEY, JSON.stringify(map));
+}
+
+function getPlayerId(): string {
+  const now = Date.now();
+  const live = readLive();
+  for (const [k, t] of Object.entries(live)) if (now - t > STALE_MS) delete live[k];
+
+  let id = sessionStorage.getItem('playerId');
+  // Sin id, o el id ya está vivo en otra pestaña (duplicada) → uno nuevo.
+  if (!id || live[id] !== undefined) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem('playerId', id);
+  }
+  live[id] = now;
+  writeLive(live);
+
+  const beat = () => { const m = readLive(); m[id!] = Date.now(); writeLive(m); };
+  setInterval(beat, HEARTBEAT_MS);
+  window.addEventListener('pagehide', () => { const m = readLive(); delete m[id!]; writeLive(m); });
+
+  return id;
+}
+const PLAYER_ID = getPlayerId();
 
 // Código de sala: 4 caracteres alfanuméricos en mayúscula. Excluye caracteres
 // ambiguos (0/O, 1/I/L) para que sea fácil de leer y compartir de viva voz.
@@ -17,18 +50,48 @@ function generateRoomCode(): string {
   return code;
 }
 
+// La sala vive en la URL (/room/{code}), así un F5 te devuelve a la sala y
+// reconecta al asiento (§14) en vez de mandarte a la pantalla inicial.
+function parseRoom(): string | null {
+  const m = window.location.pathname.match(/^\/room\/([A-Za-z0-9]+)\/?$/);
+  return m ? m[1].toUpperCase() : null;
+}
+
 export default function App() {
   const [name, setName] = useState(() => localStorage.getItem('playerName') ?? '');
-  const [codeInput, setCodeInput] = useState('');
-  const [joined, setJoined] = useState<{ room: string; name: string } | null>(null);
+  const [codeInput, setCodeInput] = useState(() => parseRoom() ?? '');
+  const [joined, setJoined] = useState<{ room: string; name: string } | null>(() => {
+    const room = parseRoom();
+    const storedName = (localStorage.getItem('playerName') ?? '').trim();
+    return room && storedName ? { room, name: storedName } : null;
+  });
 
   const canEnter = name.trim().length > 0;
+
+  // Mantener el estado en sync con back/forward del navegador.
+  useEffect(() => {
+    const onPop = () => {
+      const room = parseRoom();
+      const storedName = (localStorage.getItem('playerName') ?? '').trim();
+      setJoined(room && storedName ? { room, name: storedName } : null);
+      if (room) setCodeInput(room);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const enter = (room: string) => {
     if (!canEnter) return;
     const finalName = name.trim();
+    const code = room.toUpperCase();
     localStorage.setItem('playerName', finalName);
-    setJoined({ room, name: finalName });
+    window.history.pushState({}, '', `/room/${code}`);
+    setJoined({ room: code, name: finalName });
+  };
+
+  const leave = () => {
+    window.history.pushState({}, '', '/');
+    setJoined(null);
   };
 
   const createRoom = () => enter(generateRoomCode());
@@ -43,7 +106,7 @@ export default function App() {
         playerId={PLAYER_ID}
         room={joined.room}
         name={joined.name}
-        onLeave={() => setJoined(null)}
+        onLeave={leave}
       />
     );
   }

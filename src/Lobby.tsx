@@ -19,7 +19,8 @@ const ROLE_OPTIONS: RoleOption[] = [
 
 function PlayerChip({ player, hostId, meId }: { player: Player; hostId: string; meId?: string }) {
   return (
-    <li>
+    <li className={player.connected ? '' : 'offline'}>
+      <span className={`dot ${player.connected ? 'on' : 'off'}`} />
       <span className="pname">{player.name}</span>
       <span className="prole">{roleLabel(player.role)}</span>
       {hostId === player.id && <span className="badge host">host</span>}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { teamLabel } from '../party/rules';
+import { teamLabel, gameViable } from '../party/rules';
 import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
@@ -51,6 +51,14 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
   const showWin = finished && pending.size === 0 && justRevealed.length === 0;
   const gameOverId = finished ? lastRevealedId : null;
   const assassinHit = state.board.some(c => c.color === 'assassin' && c.revealed);
+
+  // Aviso de desconexión: durante la partida, quién se cayó y si peligra seguir.
+  const players = Object.values(state.players);
+  const disconnected = players.filter(p => !p.connected);
+  const showDisconnects = !finished && disconnected.length > 0;
+  const atRisk = showDisconnects && !gameViable(players);
+  const discNames = disconnected.map(p => p.name).join(', ');
+  const verb = disconnected.length > 1 ? 'se desconectaron' : 'se desconectó';
 
   // Tras el render: registrá el board/score actuales y la última carta revelada.
   useEffect(() => {
@@ -149,6 +157,13 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
               «{state.clue.word.toUpperCase()}» · {state.clue.count} · intentos: {guessesLeft}
             </span>
           )}
+        </div>
+      )}
+
+      {showDisconnects && (
+        <div className="notice-bar">
+          ⚠ <strong>{discNames}</strong> {verb}.
+          {atRisk && ' La partida volverá al lobby si no vuelve pronto.'}
         </div>
       )}
 

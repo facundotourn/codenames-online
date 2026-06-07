@@ -4,7 +4,7 @@ import type {
   ClientMessage, ServerMessage,
 } from './types';
 import { MAX_PER_TEAM } from './types';
-import { startBlockReason, viewFor, isTeamRole } from './rules';
+import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
 import { generateBoard } from './game';
 
 // Normaliza para comparar palabras (sin acentos ni mayúsculas).
@@ -12,10 +12,32 @@ function normalize(s: string): string {
   return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-// ── Fases 1-2 ──
-// Lobby server-authoritative (roles, ready, host, arranque validado §7.1) +
-// loop de juego completo: pista del jefe, adivinanzas, conteo de N+1 intentos,
-// cambios de turno, victoria/derrota y redacción anti-cheat por rol.
+// La sala (y la partida en curso) se descarta tras este lapso con TODOS los
+// participantes desconectados (§14).
+const ABANDON_MS = 5 * 60 * 1000;
+
+// Gracia antes de abortar una partida inviable (§16): da tiempo a que un jugador
+// que se cayó (o recargó la página) reconecte sin tumbar la partida de todos.
+const VIABILITY_GRACE_MS = 20 * 1000;
+
+// Snapshot serializable del estado, persistido en DO Storage para sobrevivir
+// reinicios del Durable Object y permitir reconexión.
+interface Snapshot {
+  players: [string, Player][];
+  hostId: string | null;
+  phase: Phase;
+  board: Card[];
+  startingTeam: Team;
+  turn: Team;
+  clue: Clue | null;
+  remaining: { red: number; blue: number };
+  winner: Team | null;
+}
+
+// ── Fases 1-4 ──
+// Lobby + loop de juego completos (§7.1, §8) con redacción anti-cheat (§9), más
+// persistencia, reconexión, migración de host, descarte de sala abandonada y
+// viabilidad de la partida en curso (§14, §16).
 export default class Server implements Party.Server {
   constructor(readonly room: Party.Room) {}
 
@@ -30,17 +52,64 @@ export default class Server implements Party.Server {
   private remaining = { red: 0, blue: 0 };
   private winner: Team | null = null;
 
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    const rawName = new URL(ctx.request.url).searchParams.get('name') ?? 'Jugador';
-    this.players.set(conn.id, {
-      id: conn.id,
-      name: this.uniqueName(rawName),
-      role: 'spectator',
-      team: null,
-      connected: true,
-      ready: false,
-    });
-    if (!this.hostId) this.hostId = conn.id;
+  // Timer de gracia de viabilidad (en memoria; la sala sigue viva porque hay
+  // otros participantes conectados durante la ventana).
+  private viabilityTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Rehidrata el estado persistido al (re)arrancar el Durable Object (§14).
+  async onStart() {
+    const snap = await this.room.storage.get<Snapshot>('snapshot');
+    if (!snap) return;
+    // Al arrancar nadie está conectado todavía; se marcan al reconectar.
+    this.players = new Map(snap.players.map(([id, p]) => [id, { ...p, connected: false }]));
+    this.hostId = snap.hostId;
+    this.phase = snap.phase;
+    this.board = snap.board;
+    this.startingTeam = snap.startingTeam;
+    this.turn = snap.turn;
+    this.clue = snap.clue;
+    this.remaining = snap.remaining;
+    this.winner = snap.winner;
+    // Si quedó gente pero nadie se reconecta, la sala se limpia sola.
+    if (this.players.size > 0) await this.room.storage.setAlarm(Date.now() + ABANDON_MS);
+  }
+
+  async onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
+    const existing = this.players.get(conn.id);
+    if (existing) {
+      existing.connected = true; // reconexión por id: conserva asiento, rol, equipo y ready
+    } else {
+      const rawName = (new URL(ctx.request.url).searchParams.get('name') ?? 'Jugador').trim();
+      // Reclamo por nombre: si hay un asiento DESCONECTADO con ese mismo nombre,
+      // el nuevo jugador lo toma (caso: cerró la pestaña y volvió a entrar, ya sin
+      // su sessionStorage). Conserva rol y equipo en vez de entrar como "nombre (1)".
+      const reclaim = [...this.players.values()].find(p => !p.connected && p.name === rawName);
+      if (reclaim) {
+        this.players.delete(reclaim.id);
+        if (this.hostId === reclaim.id) this.hostId = conn.id;
+        this.players.set(conn.id, { ...reclaim, id: conn.id, connected: true });
+      } else {
+        this.players.set(conn.id, {
+          id: conn.id,
+          name: this.uniqueName(rawName),
+          role: 'spectator',
+          team: null,
+          connected: true,
+          ready: false,
+        });
+      }
+    }
+    // Asegurar siempre un host conectado.
+    if (!this.hostId || !this.players.get(this.hostId)?.connected) {
+      this.hostId = this.oldestConnectedId() ?? conn.id;
+    }
+    // Si la reconexión devuelve viabilidad a la partida, cancelar la gracia.
+    if (this.viabilityTimer && gameViable([...this.players.values()])) {
+      clearTimeout(this.viabilityTimer);
+      this.viabilityTimer = null;
+    }
+    // Alguien volvió: cancelar el descarte de sala abandonada.
+    await this.room.storage.deleteAlarm();
     this.broadcastState();
   }
 
@@ -145,17 +214,46 @@ export default class Server implements Party.Server {
     this.broadcastState();
   }
 
-  onClose(conn: Party.Connection) {
-    const wasHost = this.hostId === conn.id;
-    this.players.delete(conn.id);
+  async onClose(conn: Party.Connection) {
+    const player = this.players.get(conn.id);
+    if (!player) return;
 
-    // Migración de host: al participante más antiguo que quede (orden de inserción).
-    // (La gracia de reconexión de 5 min llega en la Fase 4; por ahora, salir = irse.)
-    if (wasHost) {
-      const next = [...this.players.values()][0] as Player | undefined;
-      this.hostId = next?.id ?? null;
+    if (this.phase === 'lobby') {
+      // En el lobby no hay nada que preservar: el asiento se libera.
+      this.players.delete(conn.id);
+    } else {
+      // En partida (o pantalla de fin) se conserva el asiento para reconexión.
+      player.connected = false;
     }
+
+    // Migración de host: al participante conectado más antiguo (orden de ingreso).
+    if (this.hostId === conn.id) {
+      this.hostId = this.oldestConnectedId();
+    }
+
+    // Viabilidad de la partida en curso (§16): si un equipo quedó sin jefe o sin
+    // quién adivine, se da una gracia para reconectar antes de volver al lobby.
+    if ((this.phase === 'awaitingClue' || this.phase === 'guessing') &&
+        !gameViable([...this.players.values()])) {
+      this.scheduleViabilityCheck();
+    }
+
+    // Sala abandonada: si no queda nadie conectado, programar el descarte (§14).
+    if (this.noneConnected()) {
+      await this.room.storage.setAlarm(Date.now() + ABANDON_MS);
+    }
+
     this.broadcastState();
+  }
+
+  // Descarte de sala abandonada: tras ABANDON_MS sin nadie conectado, se borra
+  // todo. Si alguien volvió mientras tanto, no se hace nada.
+  async onAlarm() {
+    if (!this.noneConnected()) return;
+    this.players.clear();
+    this.hostId = null;
+    this.resetToLobby();
+    await this.room.storage.deleteAll();
   }
 
   // ── Transiciones ──
@@ -172,12 +270,31 @@ export default class Server implements Party.Server {
   }
 
   private resetToLobby() {
+    if (this.viabilityTimer) { clearTimeout(this.viabilityTimer); this.viabilityTimer = null; }
+    // En el lobby no se preservan asientos: se descartan los desconectados para no
+    // dejar fantasmas que bloqueen el inicio (no estarán "ready" nunca).
+    for (const [id, p] of this.players) if (!p.connected) this.players.delete(id);
+    if (!this.hostId || !this.players.has(this.hostId)) this.hostId = this.oldestConnectedId();
     this.phase = 'lobby';
     this.board = [];
     this.clue = null;
     this.winner = null;
     this.remaining = { red: 0, blue: 0 };
     for (const p of this.players.values()) p.ready = false;
+  }
+
+  // Tras la gracia, si la partida sigue inviable, vuelve al lobby con aviso.
+  private scheduleViabilityCheck() {
+    if (this.viabilityTimer) return; // ya hay una gracia en curso
+    this.viabilityTimer = setTimeout(() => {
+      this.viabilityTimer = null;
+      if ((this.phase === 'awaitingClue' || this.phase === 'guessing') &&
+          !gameViable([...this.players.values()])) {
+        this.resetToLobby();
+        this.failAll('La partida volvió al lobby: un equipo quedó sin jefe de espías o sin quién adivine.');
+        this.broadcastState();
+      }
+    }, VIABILITY_GRACE_MS);
   }
 
   private canGuess(player: Player): boolean {
@@ -230,6 +347,17 @@ export default class Server implements Party.Server {
     ).length;
   }
 
+  // Primer participante conectado en orden de ingreso (para migrar el host).
+  private oldestConnectedId(): string | null {
+    for (const p of this.players.values()) if (p.connected) return p.id;
+    return null;
+  }
+
+  private noneConnected(): boolean {
+    for (const p of this.players.values()) if (p.connected) return false;
+    return true;
+  }
+
   // Agrega " (n)" (n = 1..9) si el nombre ya está tomado en la sala.
   private uniqueName(desired: string, selfId?: string): string {
     const base = desired.trim() || 'Jugador';
@@ -258,7 +386,8 @@ export default class Server implements Party.Server {
     };
   }
 
-  // Cada conexión recibe la vista redactada según su rol (anti-cheat §9).
+  // Cada conexión recibe la vista redactada según su rol (anti-cheat §9), y se
+  // persiste el snapshot tras cada cambio.
   private broadcastState() {
     const base = this.buildState();
     for (const conn of this.room.getConnections()) {
@@ -266,11 +395,32 @@ export default class Server implements Party.Server {
       const msg: ServerMessage = { type: 'state', state: viewFor(base, role) };
       conn.send(JSON.stringify(msg));
     }
+    this.save();
+  }
+
+  private save() {
+    const snap: Snapshot = {
+      players: [...this.players.entries()],
+      hostId: this.hostId,
+      phase: this.phase,
+      board: this.board,
+      startingTeam: this.startingTeam,
+      turn: this.turn,
+      clue: this.clue,
+      remaining: this.remaining,
+      winner: this.winner,
+    };
+    void this.room.storage.put('snapshot', snap);
   }
 
   private fail(conn: Party.Connection, message: string) {
     const msg: ServerMessage = { type: 'error', message };
     conn.send(JSON.stringify(msg));
+  }
+
+  private failAll(message: string) {
+    const msg: ServerMessage = { type: 'error', message };
+    for (const conn of this.room.getConnections()) conn.send(JSON.stringify(msg));
   }
 }
 
