@@ -3,7 +3,7 @@ import type {
   GameState, Player, Phase, Card, Team, Clue,
   ClientMessage, ServerMessage,
 } from './types';
-import { MAX_PER_TEAM } from './types';
+import { MAX_PER_TEAM, MAX_AI_CLUES } from './types';
 import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
 import { generateBoard } from './game';
 
@@ -71,7 +71,7 @@ export default class Server implements Party.Server {
     const snap = await this.room.storage.get<Snapshot>('snapshot');
     if (!snap) return;
     // Al arrancar nadie está conectado todavía; se marcan al reconectar.
-    this.players = new Map(snap.players.map(([id, p]) => [id, { ...p, connected: false }]));
+    this.players = new Map(snap.players.map(([id, p]) => [id, { ...p, connected: false, aiCluesUsed: p.aiCluesUsed ?? 0 }]));
     this.hostId = snap.hostId;
     this.phase = snap.phase;
     this.board = snap.board;
@@ -106,6 +106,7 @@ export default class Server implements Party.Server {
           team: null,
           connected: true,
           ready: false,
+          aiCluesUsed: 0,
         });
       }
     }
@@ -283,6 +284,8 @@ export default class Server implements Party.Server {
     this.remaining = remaining;
     this.clue = null;
     this.winner = null;
+    // Cada jefe arranca con sus sugerencias de IA disponibles (§13).
+    for (const p of this.players.values()) p.aiCluesUsed = 0;
   }
 
   private resetToLobby() {
@@ -323,6 +326,10 @@ export default class Server implements Party.Server {
       return this.fail(conn, 'Solo el jefe del equipo en turno puede pedir una sugerencia.');
     }
 
+    if (player.aiCluesUsed >= MAX_AI_CLUES) {
+      return this.fail(conn, `Ya usaste tus ${MAX_AI_CLUES} sugerencias de IA de esta partida.`);
+    }
+
     const apiKey = this.room.env.ANTHROPIC_API_KEY as string | undefined;
     if (!apiKey) return this.fail(conn, 'La sugerencia por IA no está configurada en el server.');
 
@@ -347,20 +354,20 @@ export default class Server implements Party.Server {
         'Sos un jefe de espías experto en Codenames en español. Proponé UNA sola ' +
         'pista para tu equipo.\n' +
         'Estrategia (MUY importante):\n' +
-        '- Priorizá la PRECISIÓN por sobre la cantidad. Una pista clara y específica ' +
-        'que conecte 1 o 2 palabras es una EXCELENTE jugada; conectar 2 ya es muy bueno.\n' +
-        '- Conectar 3 palabras es ambicioso y rara vez vale la pena; conectar 4 o más casi nunca.\n' +
-        '- NO fuerces una pista vaga o ambigua con tal de abarcar más palabras: es ' +
-        'contraproducente, porque una pista débil hace que tu equipo dude o señale ' +
-        'palabras del rival, neutrales o el asesino.\n' +
+        '- NUNCA conectes más de 2 palabras con una pista. El máximo absoluto es 2.\n' +
+        '- Lo ideal es una pista clara y específica que conecte 2 palabras; conectar 1 ' +
+        'también es perfectamente válido.\n' +
+        '- Priorizá la PRECISIÓN por sobre la cantidad. NO fuerces una pista vaga o ' +
+        'ambigua: es contraproducente, porque una pista débil hace que tu equipo dude o ' +
+        'señale palabras del rival, neutrales o el asesino.\n' +
         '- La partida dura VARIOS turnos: no hace falta ganar en una sola pista. Más vale ' +
-        'una conexión fuerte de pocas palabras que una floja de muchas.\n' +
+        'una conexión fuerte de 1-2 palabras que una floja.\n' +
         'Reglas estrictas para la pista:\n' +
         '- Una sola palabra en español, SIN números, SIN espacios y SIN caracteres especiales.\n' +
         '- NUNCA puede ser una palabra del tablero, ni parte, variante o derivada de ellas.\n' +
         '- Evitá a toda costa el asesino; no orientes hacia palabras del rival ni neutrales.\n' +
-        'Devolvé la pista, la lista EXACTA de palabras de tu equipo (tal cual aparecen) ' +
-        'que conecta de forma sólida, y una frase breve justificando por qué la conexión es clara.';
+        'Devolvé la pista, la lista EXACTA de palabras de tu equipo (1 o 2, tal cual ' +
+        'aparecen) que conecta de forma sólida, y una frase breve justificando la conexión.';
 
       const board =
         `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
@@ -426,11 +433,18 @@ export default class Server implements Party.Server {
         // Inválida si quedó vacía o coincide con una palabra del tablero.
         if (!word || boardSet.has(normalize(word))) continue;
 
-        // Quedarnos solo con las palabras propuestas que realmente son del equipo.
+        // Quedarnos solo con las palabras propuestas que realmente son del equipo,
+        // y como mucho 2 (regla dura para fomentar el ingenio de los jugadores).
         const words = (parsed.words ?? [])
           .map(w => ownByNorm.get(normalize(w)))
-          .filter((w): w is string => !!w);
-        const count = Math.max(1, Math.min(9, words.length || 1));
+          .filter((w): w is string => !!w)
+          .slice(0, 2);
+        const count = Math.max(1, Math.min(2, words.length || 1));
+
+        // Consumir una de las sugerencias disponibles del jefe y propagar el
+        // contador (el resto del estado no cambia).
+        player.aiCluesUsed++;
+        this.broadcastState();
 
         const msg: ServerMessage = { type: 'clueSuggestion', word, count, words, reasoning: parsed.reasoning ?? '' };
         return conn.send(JSON.stringify(msg));

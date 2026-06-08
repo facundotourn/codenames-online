@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { teamLabel, gameViable } from '../party/rules';
+import { MAX_AI_CLUES } from '../party/types';
 import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
@@ -36,6 +37,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
   const canGuess = !!me && (me.role === 'tableBoard' || (me.role === 'operative' && me.team === state.turn));
   const guessingNow = state.phase === 'guessing' && canGuess && !finished;
   const myClueTurn = me?.role === 'spymaster' && me.team === state.turn && state.phase === 'awaitingClue';
+  const aiCluesLeft = MAX_AI_CLUES - (me?.aiCluesUsed ?? 0);
 
   const guessesLeft = state.clue ? state.clue.count + 1 - state.clue.guessesUsed : 0;
 
@@ -215,8 +217,12 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
             <button onClick={submitClue} disabled={!clueWord.trim()}>Enviar</button>
           </div>
           <div className="ai-row">
-            <button className="ghost ai-btn" onClick={askAI} disabled={askingAI}>
-              {askingAI ? '🤔 Pensando…' : '💡 Sugerir pista (IA)'}
+            <button className="ghost ai-btn" onClick={askAI} disabled={askingAI || aiCluesLeft <= 0}>
+              {askingAI
+                ? '🤔 Pensando…'
+                : aiCluesLeft <= 0
+                  ? '💡 Sin sugerencias de IA'
+                  : `💡 Sugerir pista (IA) · ${aiCluesLeft} restante${aiCluesLeft === 1 ? '' : 's'}`}
             </button>
           </div>
           {clueSuggestion && (

@@ -15,6 +15,7 @@ export interface Player {
   team: Team | null;     // spymaster/operative ⇒ Team; tableBoard/spectator ⇒ null
   connected: boolean;
   ready: boolean;        // listo en el lobby; cambiar de rol lo resetea a false
+  aiCluesUsed: number;   // sugerencias de IA pedidas en la partida actual (tope MAX_AI_CLUES)
 }
 
 export interface Card {
@@ -45,6 +46,8 @@ export interface GameState {
 
 // ── Parámetros de configuración (ver §16) ──
 export const MAX_PER_TEAM = 10;
+// Sugerencias de pista por IA que cada jefe puede pedir por partida (§13).
+export const MAX_AI_CLUES = 2;
 
 // ── Protocolo de mensajes ──
 
