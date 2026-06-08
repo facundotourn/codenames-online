@@ -112,26 +112,41 @@ export default function App() {
   }
 
   return (
-    <div className="screen">
-      <h1><span className="r">Code</span><span className="b">names</span> Online</h1>
-      <p className="tag">Multiplayer en tiempo real · creá una sala y compartí el código</p>
+    <div className="screen welcome">
+      <div className="hero">
+        <div className="hero-logo">🕵️</div>
+        <h1><span className="r">Code</span><span className="b">names</span> <span className="hero-on">Online</span></h1>
+        <p className="tag">Multiplayer en tiempo real · jugá con amigos en cualquier lado</p>
+      </div>
 
-      <div className="form">
-        <label>
-          Nombre
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Tu nombre"
-            autoFocus
-          />
-        </label>
+      <label className="name-field">
+        <span className="name-label">¿Cómo te llamás?</span>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Tu nombre"
+          autoFocus
+        />
+      </label>
 
-        <div className="entry-options">
-          <button onClick={createRoom} disabled={!canEnter}>Crear sala nueva</button>
+      <div className="entry-cards">
+        <section className="entry-card">
+          <div className="entry-head">
+            <div className="entry-icon create">✨</div>
+            <h3>Crear una sala</h3>
+          </div>
+          <p>Empezá una partida nueva y compartí el código con tu gente.</p>
+          <button className="btn-pop entry-action" onClick={createRoom} disabled={!canEnter}>
+            Crear sala
+          </button>
+        </section>
 
-          <div className="sep"><span>o</span></div>
-
+        <section className="entry-card">
+          <div className="entry-head">
+            <div className="entry-icon join">🔑</div>
+            <h3>Unirse a una sala</h3>
+          </div>
+          <p>¿Te pasaron un código? Ingresalo y sumate.</p>
           <div className="join-row">
             <input
               className="code-input"
@@ -149,10 +164,10 @@ export default function App() {
               Unirse
             </button>
           </div>
-        </div>
-
-        {!canEnter && <p className="hint">Ingresá tu nombre para crear o unirte a una sala.</p>}
+        </section>
       </div>
+
+      {!canEnter && <p className="hint">👆 Poné tu nombre para crear o unirte a una sala.</p>}
     </div>
   );
 }
