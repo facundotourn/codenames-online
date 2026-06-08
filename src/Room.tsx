@@ -37,7 +37,7 @@ export function Room({ playerId, room, name, onLeave }: Props) {
         if (msg.state.phase !== 'awaitingClue') setSuggestion(null);
       } else if (msg.type === 'error') setError(msg.message);
       else if (msg.type === 'clueSuggestion') {
-        setSuggestion({ word: msg.word, count: msg.count, reasoning: msg.reasoning });
+        setSuggestion({ word: msg.word, count: msg.count, words: msg.words, reasoning: msg.reasoning });
       }
     },
   });

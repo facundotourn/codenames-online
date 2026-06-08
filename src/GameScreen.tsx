@@ -225,6 +225,11 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
                 <span className="ai-clue">«{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
                 <button onClick={useSuggestion}>Usar</button>
               </div>
+              {clueSuggestion.words.length > 0 && (
+                <p className="ai-words">
+                  Conecta: {clueSuggestion.words.map(w => w.toUpperCase()).join(', ')}
+                </p>
+              )}
               {clueSuggestion.reasoning && <p className="ai-reason">{clueSuggestion.reasoning}</p>}
             </div>
           )}

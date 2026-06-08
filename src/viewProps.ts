@@ -4,6 +4,7 @@ import type { GameState, Player, ClientMessage } from '../party/types';
 export interface ClueSuggestion {
   word: string;
   count: number;
+  words: string[];
   reasoning: string;
 }
 

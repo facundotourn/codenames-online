@@ -338,66 +338,96 @@ export default class Server implements Party.Server {
       const neutral = this.unrevealedWords('neutral');
       const assassin = this.unrevealedWords('assassin');
 
-      const system =
-        'Sos un jefe de espías experto en Codenames en español. Dada la grilla, ' +
-        'proponé UNA sola pista (una palabra, sin espacios) que conecte la mayor ' +
-        'cantidad posible de palabras de tu equipo. La pista NO puede ser ninguna ' +
-        'palabra del tablero ni una variante/derivada de ellas. Evitá a toda costa ' +
-        'el asesino, y cuidá no orientar hacia palabras del rival o neutrales. ' +
-        'Devolvé el número de palabras de tu equipo que conecta tu pista.';
+      // Conjunto de palabras del tablero (normalizadas) para rechazar pistas que
+      // sean una palabra en juego (la IA a veces propone una del tablero).
+      const boardSet = new Set(this.board.map(c => normalize(c.word)));
+      const ownByNorm = new Map(own.map(w => [normalize(w), w]));
 
-      const user =
+      const system =
+        'Sos un jefe de espías experto en Codenames en español. Proponé UNA sola ' +
+        'pista que conecte la mayor cantidad posible de palabras de tu equipo.\n' +
+        'Reglas estrictas para la pista:\n' +
+        '- Una sola palabra en español, SIN números, SIN espacios y SIN caracteres especiales.\n' +
+        '- NUNCA puede ser una palabra del tablero, ni parte, variante o derivada de ellas.\n' +
+        '- Evitá a toda costa el asesino; no orientes hacia palabras del rival ni neutrales.\n' +
+        'Devolvé también la lista EXACTA de palabras de tu equipo (tal cual aparecen) ' +
+        'que tu pista conecta, y el número (que es la cantidad de esas palabras).';
+
+      const board =
         `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
         `Palabras del rival (a evitar): ${rival.join(', ') || '—'}\n` +
         `Palabras neutrales (a evitar): ${neutral.join(', ') || '—'}\n` +
         `Asesino (NUNCA orientar hacia acá): ${assassin.join(', ') || '—'}`;
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: CLUE_MODEL,
-          max_tokens: 512,
-          system,
-          messages: [{ role: 'user', content: user }],
-          output_config: {
-            format: {
-              type: 'json_schema',
-              schema: {
-                type: 'object',
-                properties: {
-                  word: { type: 'string', description: 'la pista, una sola palabra' },
-                  count: { type: 'integer', description: 'cuántas palabras del equipo conecta (1 a 9)' },
-                  reasoning: { type: 'string', description: 'una frase breve explicando la conexión' },
+      // Hasta 2 intentos: si la IA devuelve algo inválido (vacío, con números o
+      // una palabra del tablero), reintentamos una vez explicándole el motivo.
+      let lastBad = '';
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const user = attempt === 0
+          ? board
+          : `${board}\n\nTu propuesta anterior («${lastBad}») no sirve: es una palabra del tablero o tiene números/caracteres. Probá otra, respetando las reglas.`;
+
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: CLUE_MODEL,
+            max_tokens: 512,
+            system,
+            messages: [{ role: 'user', content: user }],
+            output_config: {
+              format: {
+                type: 'json_schema',
+                schema: {
+                  type: 'object',
+                  properties: {
+                    word: { type: 'string', description: 'la pista: una sola palabra, sin números ni símbolos' },
+                    words: {
+                      type: 'array', items: { type: 'string' },
+                      description: 'las palabras de tu equipo que conecta la pista, tal cual aparecen en el tablero',
+                    },
+                    reasoning: { type: 'string', description: 'una frase breve explicando la conexión' },
+                  },
+                  required: ['word', 'words', 'reasoning'],
+                  additionalProperties: false,
                 },
-                required: ['word', 'count', 'reasoning'],
-                additionalProperties: false,
               },
             },
-          },
-        }),
-      });
+          }),
+        });
 
-      if (!res.ok) {
-        console.error('Anthropic API error', res.status, await res.text());
-        return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+        if (!res.ok) {
+          console.error('Anthropic API error', res.status, await res.text());
+          return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+        }
+
+        const data = await res.json() as { content?: { type: string; text?: string }[] };
+        const text = data.content?.find(b => b.type === 'text')?.text;
+        if (!text) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+
+        const parsed = JSON.parse(text) as { word?: string; words?: string[]; reasoning?: string };
+        // Saneo: primer token, solo letras (incluye acentos y ñ).
+        const word = (parsed.word ?? '').trim().split(/\s+/)[0].replace(/[^\p{L}]/gu, '');
+        lastBad = (parsed.word ?? '').trim();
+
+        // Inválida si quedó vacía o coincide con una palabra del tablero.
+        if (!word || boardSet.has(normalize(word))) continue;
+
+        // Quedarnos solo con las palabras propuestas que realmente son del equipo.
+        const words = (parsed.words ?? [])
+          .map(w => ownByNorm.get(normalize(w)))
+          .filter((w): w is string => !!w);
+        const count = Math.max(1, Math.min(9, words.length || 1));
+
+        const msg: ServerMessage = { type: 'clueSuggestion', word, count, words, reasoning: parsed.reasoning ?? '' };
+        return conn.send(JSON.stringify(msg));
       }
 
-      const data = await res.json() as { content?: { type: string; text?: string }[] };
-      const text = data.content?.find(b => b.type === 'text')?.text;
-      if (!text) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
-
-      const parsed = JSON.parse(text) as { word?: string; count?: number; reasoning?: string };
-      const word = (parsed.word ?? '').trim().split(/\s+/)[0];
-      const count = Math.max(1, Math.min(9, Math.floor(parsed.count ?? 1)));
-      if (!word) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
-
-      const msg: ServerMessage = { type: 'clueSuggestion', word, count, reasoning: parsed.reasoning ?? '' };
-      conn.send(JSON.stringify(msg));
+      this.fail(conn, 'La IA no encontró una pista válida, probá de nuevo.');
     } catch (err) {
       console.error('suggestClue failed', err);
       this.fail(conn, 'No pude generar una sugerencia ahora mismo.');

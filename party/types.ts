@@ -64,5 +64,5 @@ export type ClientMessage =
 // Servidor → Cliente
 export type ServerMessage =
   | { type: 'state'; state: GameState }
-  | { type: 'clueSuggestion'; word: string; count: number; reasoning: string }
+  | { type: 'clueSuggestion'; word: string; count: number; words: string[]; reasoning: string }
   | { type: 'error'; message: string };

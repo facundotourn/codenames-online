@@ -208,6 +208,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .ai-suggestion-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ai-clue { font-weight: 800; font-size: 1.05rem; }
+.ai-words { margin: 8px 0 0; font-size: 0.9rem; font-weight: 600; }
 .ai-reason { margin: 6px 0 0; font-size: 0.88rem; opacity: 0.8; }
 .score-red { color: var(--red); font-weight: 800; }
 .score-blue { color: var(--blue); font-weight: 800; }
