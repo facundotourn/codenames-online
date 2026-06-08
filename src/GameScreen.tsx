@@ -10,9 +10,10 @@ const lsBool = (key: string, def: boolean) => {
   return v === null ? def : v === '1';
 };
 
-export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
+export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, onClearSuggestion }: RoomViewProps) {
   const [clueWord, setClueWord] = useState('');
   const [clueCount, setClueCount] = useState(1);
+  const [askingAI, setAskingAI] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dramatic, setDramatic] = useState(() => lsBool('opt.dramatic', false));
   const [confettiOn, setConfettiOn] = useState(() => lsBool('opt.confetti', true));
@@ -93,12 +94,30 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
   const onRevealStart = (id: string) => setPending(s => { const n = new Set(s); n.add(id); return n; });
   const onRevealEnd = (id: string) => setPending(s => { const n = new Set(s); n.delete(id); return n; });
 
+  // La sugerencia de IA llega (o falla) de forma asíncrona: cortamos el estado
+  // "pensando…" cuando aparece una sugerencia nueva o un error.
+  useEffect(() => { setAskingAI(false); }, [clueSuggestion, error]);
+
+  const askAI = () => {
+    setAskingAI(true);
+    onClearSuggestion();
+    send({ type: 'requestClueSuggestion' });
+  };
+
+  const useSuggestion = () => {
+    if (!clueSuggestion) return;
+    setClueWord(clueSuggestion.word);
+    setClueCount(Math.max(1, Math.min(9, clueSuggestion.count)));
+    onClearSuggestion();
+  };
+
   const submitClue = () => {
     const word = clueWord.trim();
     if (!word) return;
     send({ type: 'giveClue', word, count: clueCount });
     setClueWord('');
     setClueCount(1);
+    onClearSuggestion();
   };
 
   return (
@@ -195,6 +214,20 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
             </div>
             <button onClick={submitClue} disabled={!clueWord.trim()}>Enviar</button>
           </div>
+          <div className="ai-row">
+            <button className="ghost ai-btn" onClick={askAI} disabled={askingAI}>
+              {askingAI ? '🤔 Pensando…' : '💡 Sugerir pista (IA)'}
+            </button>
+          </div>
+          {clueSuggestion && (
+            <div className="ai-suggestion">
+              <div className="ai-suggestion-head">
+                <span className="ai-clue">«{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
+                <button onClick={useSuggestion}>Usar</button>
+              </div>
+              {clueSuggestion.reasoning && <p className="ai-reason">{clueSuggestion.reasoning}</p>}
+            </div>
+          )}
         </section>
       )}
 

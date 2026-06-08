@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import usePartySocket from 'partysocket/react';
 import type { GameState, ClientMessage, ServerMessage } from '../party/types';
+import type { ClueSuggestion } from './viewProps';
 import { Lobby } from './Lobby';
 import { GameScreen } from './GameScreen';
 
@@ -20,6 +21,7 @@ interface Props {
 export function Room({ playerId, room, name, onLeave }: Props) {
   const [state, setState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<ClueSuggestion | null>(null);
 
   const socket = usePartySocket({
     host: HOST,
@@ -28,8 +30,15 @@ export function Room({ playerId, room, name, onLeave }: Props) {
     query: { name },
     onMessage(event) {
       const msg = JSON.parse(event.data) as ServerMessage;
-      if (msg.type === 'state') setState(msg.state);
-      else if (msg.type === 'error') setError(msg.message);
+      if (msg.type === 'state') {
+        setState(msg.state);
+        // La sugerencia es para la pista del turno: al cambiar de fase (se dio
+        // una pista o cambió el turno) deja de tener sentido.
+        if (msg.state.phase !== 'awaitingClue') setSuggestion(null);
+      } else if (msg.type === 'error') setError(msg.message);
+      else if (msg.type === 'clueSuggestion') {
+        setSuggestion({ word: msg.word, count: msg.count, reasoning: msg.reasoning });
+      }
     },
   });
 
@@ -47,7 +56,11 @@ export function Room({ playerId, room, name, onLeave }: Props) {
   }
 
   const me = state.players[playerId];
-  const shared = { state, me, room, send, onLeave, error };
+  const shared = {
+    state, me, room, send, onLeave, error,
+    clueSuggestion: suggestion,
+    onClearSuggestion: () => setSuggestion(null),
+  };
 
   return state.phase === 'lobby'
     ? <Lobby {...shared} />

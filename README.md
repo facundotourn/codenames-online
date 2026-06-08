@@ -5,8 +5,8 @@ en un backend [PartyKit](https://www.partykit.io/) (Cloudflare Durable Objects) 
 frontend React + Vite. Reglas completas (spymaster, pista, turnos, adivinanzas), con
 soporte para una "mesa compartida" en un televisor durante juntadas presenciales.
 
-> Diseño completo en [`docs/design.html`](docs/design.html). Estado actual: **Fase 4
-> (reconexión, persistencia, URL de sala y viabilidad en partida)** del roadmap.
+> Diseño completo en [`docs/design.html`](docs/design.html). Estado actual: **Fase 5
+> (sugerencia de pista por IA)** del roadmap.
 
 ## Desarrollo
 
@@ -25,6 +25,13 @@ Abrí dos pestañas en la misma sala para ver la sincronización en vivo.
 ```bash
 npm run build       # type-check (tsc) + build del cliente a dist/
 npm run deploy      # partykit deploy → Cloudflare (sirve también dist/)
+```
+
+La sugerencia de pista por IA (§13) necesita la key de Anthropic en el server:
+
+```bash
+npx partykit secret put ANTHROPIC_API_KEY   # producción
+# en dev: crear un archivo .env en la raíz con ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 > Desplegado en **https://codenames-online.facundotourn.partykit.dev**. En

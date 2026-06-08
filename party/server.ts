@@ -20,6 +20,11 @@ const ABANDON_MS = 5 * 60 * 1000;
 // que se cayó (o recargó la página) reconecte sin tumbar la partida de todos.
 const VIABILITY_GRACE_MS = 20 * 1000;
 
+// Sugerencia de pista por IA (§13): modelo y rate-limit por sala para acotar
+// costo. La key vive segura en el server (variable de entorno).
+const CLUE_MODEL = 'claude-haiku-4-5';
+const CLUE_COOLDOWN_MS = 6 * 1000;
+
 // Snapshot serializable del estado, persistido en DO Storage para sobrevivir
 // reinicios del Durable Object y permitir reconexión.
 interface Snapshot {
@@ -55,6 +60,11 @@ export default class Server implements Party.Server {
   // Timer de gracia de viabilidad (en memoria; la sala sigue viva porque hay
   // otros participantes conectados durante la ventana).
   private viabilityTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Rate-limit de la sugerencia de IA (§13): cooldown por sala + un pedido a la
+  // vez (no persiste; es solo control de costo durante la vida del DO).
+  private lastClueRequestAt = 0;
+  private clueInFlight = false;
 
   // Rehidrata el estado persistido al (re)arrancar el Durable Object (§14).
   async onStart() {
@@ -207,8 +217,14 @@ export default class Server implements Party.Server {
         break;
       }
 
+      case 'requestClueSuggestion':
+        // Asíncrona (llama a la IA) y no muta el estado compartido: se atiende
+        // aparte y se responde solo a quien la pidió, sin re-broadcast.
+        void this.suggestClue(sender, player);
+        return;
+
       default:
-        return this.fail(sender, `Acción "${msg.type}" todavía no implementada.`);
+        return this.fail(sender, `Acción "${(msg as { type?: string }).type ?? '?'}" no reconocida.`);
     }
 
     this.broadcastState();
@@ -295,6 +311,104 @@ export default class Server implements Party.Server {
         this.broadcastState();
       }
     }, VIABILITY_GRACE_MS);
+  }
+
+  // Sugerencia de pista por IA (§13): el server arma el prompt con el estado
+  // real del tablero (info autoritativa que ya tiene) y pide a Claude Haiku una
+  // pista. La respuesta vuelve SOLO al jefe que la pidió — nunca a la TV ni a
+  // los operativos. Rate-limit por sala para acotar costo.
+  private async suggestClue(conn: Party.Connection, player: Player) {
+    if (this.phase !== 'awaitingClue') return this.fail(conn, 'No es momento de pedir una pista.');
+    if (player.role !== 'spymaster' || player.team !== this.turn) {
+      return this.fail(conn, 'Solo el jefe del equipo en turno puede pedir una sugerencia.');
+    }
+
+    const apiKey = this.room.env.ANTHROPIC_API_KEY as string | undefined;
+    if (!apiKey) return this.fail(conn, 'La sugerencia por IA no está configurada en el server.');
+
+    if (this.clueInFlight) return this.fail(conn, 'Ya estoy pensando una pista, esperá un momento…');
+    const wait = CLUE_COOLDOWN_MS - (Date.now() - this.lastClueRequestAt);
+    if (wait > 0) return this.fail(conn, `Esperá ${Math.ceil(wait / 1000)} s antes de pedir otra sugerencia.`);
+
+    this.clueInFlight = true;
+    this.lastClueRequestAt = Date.now();
+    try {
+      const own = this.unrevealedWords(player.team);
+      const rival = this.unrevealedWords(player.team === 'red' ? 'blue' : 'red');
+      const neutral = this.unrevealedWords('neutral');
+      const assassin = this.unrevealedWords('assassin');
+
+      const system =
+        'Sos un jefe de espías experto en Codenames en español. Dada la grilla, ' +
+        'proponé UNA sola pista (una palabra, sin espacios) que conecte la mayor ' +
+        'cantidad posible de palabras de tu equipo. La pista NO puede ser ninguna ' +
+        'palabra del tablero ni una variante/derivada de ellas. Evitá a toda costa ' +
+        'el asesino, y cuidá no orientar hacia palabras del rival o neutrales. ' +
+        'Devolvé el número de palabras de tu equipo que conecta tu pista.';
+
+      const user =
+        `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
+        `Palabras del rival (a evitar): ${rival.join(', ') || '—'}\n` +
+        `Palabras neutrales (a evitar): ${neutral.join(', ') || '—'}\n` +
+        `Asesino (NUNCA orientar hacia acá): ${assassin.join(', ') || '—'}`;
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: CLUE_MODEL,
+          max_tokens: 512,
+          system,
+          messages: [{ role: 'user', content: user }],
+          output_config: {
+            format: {
+              type: 'json_schema',
+              schema: {
+                type: 'object',
+                properties: {
+                  word: { type: 'string', description: 'la pista, una sola palabra' },
+                  count: { type: 'integer', description: 'cuántas palabras del equipo conecta (1 a 9)' },
+                  reasoning: { type: 'string', description: 'una frase breve explicando la conexión' },
+                },
+                required: ['word', 'count', 'reasoning'],
+                additionalProperties: false,
+              },
+            },
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        console.error('Anthropic API error', res.status, await res.text());
+        return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+      }
+
+      const data = await res.json() as { content?: { type: string; text?: string }[] };
+      const text = data.content?.find(b => b.type === 'text')?.text;
+      if (!text) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+
+      const parsed = JSON.parse(text) as { word?: string; count?: number; reasoning?: string };
+      const word = (parsed.word ?? '').trim().split(/\s+/)[0];
+      const count = Math.max(1, Math.min(9, Math.floor(parsed.count ?? 1)));
+      if (!word) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+
+      const msg: ServerMessage = { type: 'clueSuggestion', word, count, reasoning: parsed.reasoning ?? '' };
+      conn.send(JSON.stringify(msg));
+    } catch (err) {
+      console.error('suggestClue failed', err);
+      this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
+    } finally {
+      this.clueInFlight = false;
+    }
+  }
+
+  // Palabras todavía no reveladas de un color (para armar el prompt de la IA).
+  private unrevealedWords(color: Card['color']): string[] {
+    return this.board.filter(c => !c.revealed && c.color === color).map(c => c.word);
   }
 
   private canGuess(player: Player): boolean {
