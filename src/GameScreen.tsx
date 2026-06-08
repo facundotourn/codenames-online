@@ -258,7 +258,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
             {aiCluesLeft <= 0 && (
               <span className="tip" tabIndex={0} role="img"
                 aria-label={`info: ya usaste tus ${MAX_AI_CLUES} sugerencias`}
-                data-tip={`Ya usaste tus ${MAX_AI_CLUES} sugerencias de IA de esta partida.`}>ⓘ</span>
+                data-tip={`Ya usaste tus ${MAX_AI_CLUES} sugerencias de IA de esta partida.`}>i</span>
             )}
           </div>
           {clueSuggestion && (

@@ -227,13 +227,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Lobby ── */
 .lobby-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
-.team-panel { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.team-panel { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
 .team-panel-head { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #fff; padding: 10px 14px; }
 .team-panel.red .team-panel-head { background: var(--red); }
 .team-panel.blue .team-panel-head { background: var(--blue); }
 
 .role-group { padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 .role-group + .role-group { border-top: 1px solid var(--border); }
+/* Solo el último grupo (Agentes) se expande para ocupar el alto sobrante; su
+   botón de unirse queda al fondo y alinea con el del otro equipo. Jefe queda compacto. */
+.role-group:last-child { flex: 1; }
+.role-group:last-child .join-slot { margin-top: auto; }
 .role-group-title {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
@@ -244,6 +248,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Mismo alto que .join-btn para que unirse no salte la interfaz */
 .member { display: flex; align-items: center; gap: 7px; font-size: 14px; padding: 4px 9px; min-height: 38px; border-radius: 11px; }
 .member.offline { opacity: 0.5; }
+/* Entrada suave de los chips de otros (el mío usa el FLIP de unirse) */
+.member:not(.me) { animation: memberIn 0.3s ease; }
+@keyframes memberIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 /* Tu propio chip, resaltado para encontrarte de un vistazo */
 .member.me { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent-border); }
 .member.me .pname { color: var(--accent); font-weight: 800; }
@@ -261,15 +268,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .join-btn:hover { border-color: var(--accent-border); background: var(--accent-soft); filter: none; }
 
-/* Slot de unirse: flipper 3D (el botón se da vuelta y se convierte en tu chip) */
-.join-slot { perspective: 800px; min-height: 38px; }
-.join-flipper { position: relative; width: 100%; min-height: 38px; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.34, 1.5, 0.6, 1); }
-.join-flipper.flipped { transform: rotateX(180deg); }
-.join-front, .join-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.join-back { transform: rotateX(180deg); }
-.join-back .members { margin: 0; }
-.join-flipper.flipped .join-front { pointer-events: none; }
-.join-flipper:not(.flipped) .join-back { pointer-events: none; }
+/* Slot de unirse (el botón vive al fondo del grupo) */
+.join-slot { min-height: 38px; }
 
 /* Tarjetas neutrales (Mesa/TV, Espectadores) — mismo lenguaje que los equipos */
 .lobby-neutrals { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
@@ -287,7 +287,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .tip {
   margin-left: auto; width: 20px; height: 20px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; color: var(--muted); background: var(--surface);
+  font-family: var(--font-display); font-weight: 700; font-size: 12px; line-height: 1;
+  color: var(--muted); background: var(--surface);
   border: 1.5px solid var(--border); cursor: help; position: relative; outline: none;
 }
 .tip:hover, .tip:focus-visible { color: var(--accent); border-color: var(--accent-border); }
