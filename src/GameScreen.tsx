@@ -178,14 +178,21 @@ export function GameScreen({ state, me, send, onLeave, error }: RoomViewProps) {
               placeholder="una palabra"
               autoFocus
             />
-            <input
-              type="number"
-              min={1}
-              max={9}
-              value={clueCount}
-              onChange={e => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))}
-              className="count-input"
-            />
+            <div className="count-stepper">
+              <button
+                type="button"
+                aria-label="menos"
+                onClick={() => setClueCount(c => Math.max(1, c - 1))}
+                disabled={clueCount <= 1}
+              >−</button>
+              <span className="count-value" aria-live="polite">{clueCount}</span>
+              <button
+                type="button"
+                aria-label="más"
+                onClick={() => setClueCount(c => Math.min(9, c + 1))}
+                disabled={clueCount >= 9}
+              >+</button>
+            </div>
             <button onClick={submitClue} disabled={!clueWord.trim()}>Enviar</button>
           </div>
         </section>

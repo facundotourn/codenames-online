@@ -186,9 +186,19 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .banner.turn-red { background: var(--red); }
 .banner.turn-blue { background: var(--blue); }
 
-.clue-row { display: flex; gap: 10px; }
+.clue-row { display: flex; align-items: center; gap: 10px; }
 .clue-row input:first-child { flex: 1; }
-.count-input { width: 64px; text-align: center; }
+.count-stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.count-stepper button {
+  width: 40px; height: 40px; padding: 0;
+  font-size: 22px; line-height: 1; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.count-stepper button:disabled { opacity: 0.4; }
+.count-value {
+  min-width: 28px; text-align: center;
+  font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
 .score-red { color: var(--red); font-weight: 800; }
 .score-blue { color: var(--blue); font-weight: 800; }
 
