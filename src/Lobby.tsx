@@ -98,7 +98,6 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       <header className="room-head">
         <div>
           <h2>Sala <code className="room-code">{room}</code></h2>
-          <p className="tag">Compartí el código para que se unan · sos <strong>{me?.name ?? '—'}</strong></p>
         </div>
         <div className="head-actions">
           <ThemeToggle />

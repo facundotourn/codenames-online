@@ -396,12 +396,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .score-blue { color: var(--blue); font-weight: 800; }
 
 /* ── Theme toggle ── */
-.theme-toggle {
-  padding: 7px 10px; font-size: 16px; line-height: 1;
-  background: var(--surface); color: var(--text);
-  border: 2px solid var(--border); border-radius: 11px; box-shadow: none;
-}
-.theme-toggle:hover { filter: none; background: var(--surface-2); }
+/* Mismo estilo ghost que "Salir"; solo ajustamos el tamaño del icono */
+.theme-toggle { font-size: 17px; line-height: 1; padding: 9px 12px; }
 .screen-top { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 
 /* ── Settings gear menu ── */

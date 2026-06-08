@@ -10,7 +10,7 @@ export function ThemeToggle() {
   };
   return (
     <button
-      className="theme-toggle"
+      className="ghost theme-toggle"
       onClick={toggle}
       aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
       title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
