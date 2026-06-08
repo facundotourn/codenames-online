@@ -345,13 +345,22 @@ export default class Server implements Party.Server {
 
       const system =
         'Sos un jefe de espías experto en Codenames en español. Proponé UNA sola ' +
-        'pista que conecte la mayor cantidad posible de palabras de tu equipo.\n' +
+        'pista para tu equipo.\n' +
+        'Estrategia (MUY importante):\n' +
+        '- Priorizá la PRECISIÓN por sobre la cantidad. Una pista clara y específica ' +
+        'que conecte 1 o 2 palabras es una EXCELENTE jugada; conectar 2 ya es muy bueno.\n' +
+        '- Conectar 3 palabras es ambicioso y rara vez vale la pena; conectar 4 o más casi nunca.\n' +
+        '- NO fuerces una pista vaga o ambigua con tal de abarcar más palabras: es ' +
+        'contraproducente, porque una pista débil hace que tu equipo dude o señale ' +
+        'palabras del rival, neutrales o el asesino.\n' +
+        '- La partida dura VARIOS turnos: no hace falta ganar en una sola pista. Más vale ' +
+        'una conexión fuerte de pocas palabras que una floja de muchas.\n' +
         'Reglas estrictas para la pista:\n' +
         '- Una sola palabra en español, SIN números, SIN espacios y SIN caracteres especiales.\n' +
         '- NUNCA puede ser una palabra del tablero, ni parte, variante o derivada de ellas.\n' +
         '- Evitá a toda costa el asesino; no orientes hacia palabras del rival ni neutrales.\n' +
-        'Devolvé también la lista EXACTA de palabras de tu equipo (tal cual aparecen) ' +
-        'que tu pista conecta, y el número (que es la cantidad de esas palabras).';
+        'Devolvé la pista, la lista EXACTA de palabras de tu equipo (tal cual aparecen) ' +
+        'que conecta de forma sólida, y una frase breve justificando por qué la conexión es clara.';
 
       const board =
         `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
