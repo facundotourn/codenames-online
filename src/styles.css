@@ -73,6 +73,14 @@
 
 * { box-sizing: border-box; }
 
+/* Transición suave al cambiar de tema (activa solo durante el toggle) */
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, fill 0.4s ease !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -176,7 +184,7 @@ button.ghost:hover { background: var(--accent-soft); filter: none; }
 
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.room-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.room-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
 .room-head h2 { margin: 0; }
 .back-btn { flex-shrink: 0; font-size: 13px; padding: 8px 12px; }
 .head-title { flex: 1; min-width: 0; }
@@ -224,15 +232,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .team-panel.red .team-panel-head { background: var(--red); }
 .team-panel.blue .team-panel-head { background: var(--blue); }
 
-.role-group { padding: 12px 13px; }
+.role-group { padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 .role-group + .role-group { border-top: 1px solid var(--border); }
 .role-group-title {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--muted); margin-bottom: 8px;
+  color: var(--muted);
 }
 
-.members { list-style: none; padding: 0; margin: 0 0 9px; display: flex; flex-direction: column; gap: 6px; }
+.members { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 /* Mismo alto que .join-btn para que unirse no salte la interfaz */
 .member { display: flex; align-items: center; gap: 7px; font-size: 14px; padding: 4px 9px; min-height: 38px; border-radius: 11px; }
 .member.offline { opacity: 0.5; }
@@ -253,6 +261,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .join-btn:hover { border-color: var(--accent-border); background: var(--accent-soft); filter: none; }
 
+/* Slot de unirse: flipper 3D (el botón se da vuelta y se convierte en tu chip) */
+.join-slot { perspective: 800px; min-height: 38px; }
+.join-flipper { position: relative; width: 100%; min-height: 38px; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.34, 1.5, 0.6, 1); }
+.join-flipper.flipped { transform: rotateX(180deg); }
+.join-front, .join-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.join-back { transform: rotateX(180deg); }
+.join-back .members { margin: 0; }
+.join-flipper.flipped .join-front { pointer-events: none; }
+.join-flipper:not(.flipped) .join-back { pointer-events: none; }
+
 /* Tarjetas neutrales (Mesa/TV, Espectadores) — mismo lenguaje que los equipos */
 .lobby-neutrals { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
 .info-card { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
@@ -263,7 +281,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .info-icon { font-size: 16px; }
 .info-title { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
-.info-body { padding: 12px 13px; }
+.info-body { padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 
 /* Tooltip de info (ⓘ) */
 .tip {
@@ -396,8 +414,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .score-blue { color: var(--blue); font-weight: 800; }
 
 /* ── Theme toggle ── */
-/* Mismo estilo ghost que "Salir"; solo ajustamos el tamaño del icono */
-.theme-toggle { font-size: 17px; line-height: 1; padding: 9px 12px; }
+/* Mismo estilo y alto que "Salir"; solo cambia el contenido (icono) */
+.theme-toggle { font-size: 16px; line-height: 1; padding: 11px 13px; }
 .screen-top { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 
 /* ── Settings gear menu ── */
@@ -589,7 +607,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Responsive (mobile) ── */
 @media (max-width: 560px) {
-  .screen { padding: 22px 13px 64px; }
+  .screen { padding: 20px 16px 64px; }
   .welcome { max-width: 100%; }
   .hero h1 { font-size: 30px; }
   .hero-logo { font-size: 40px; }

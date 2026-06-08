@@ -51,27 +51,50 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
   const membersOf = (role: Role, team: Team | null) =>
     players.filter(p => p.role === role && (p.team ?? null) === team);
 
-  const RoleGroup = ({ role, team, icon, title }: { role: Role; team: Team | null; icon: string; title: string }) => {
-    const members = membersOf(role, team);
+  // Otros miembros del grupo (yo me muestro vía el flipper del slot de unirse).
+  const others = (role: Role, team: Team | null) =>
+    membersOf(role, team).filter(p => p.id !== me?.id);
+
+  // El "slot" de unirse es un flipper 3D: frente = botón "Unirme", dorso = tu
+  // chip. Gira (rotateX) según si estás en este grupo, así el botón se "da
+  // vuelta" y se convierte en tu cartel (y vuelve si te cambiás de equipo).
+  // Se llama como función (no como <Componente/>) para que el elemento persista
+  // entre renders y la transición CSS pueda animar.
+  const joinSlot = (role: Role, team: Team | null) => {
     const active = iAm(role, team);
     return (
-      <div className="role-group">
-        <div className="role-group-title"><span>{icon}</span> {title}</div>
-        {members.length > 0 && (
-          <ul className="members">
-            {members.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
-          </ul>
-        )}
-        {!active && (
-          <button className="join-btn" onClick={() => setRole(role, team)}>Unirme</button>
-        )}
+      <div className="join-slot">
+        <div className={`join-flipper${active ? ' flipped' : ''}`}>
+          <button className="join-btn join-front" onClick={() => setRole(role, team)} tabIndex={active ? -1 : 0}>
+            Unirme
+          </button>
+          <div className="join-back">
+            {me && <ul className="members"><MemberChip player={me} hostId={state.hostId} meId={me.id} /></ul>}
+          </div>
+        </div>
       </div>
     );
   };
 
-  const NeutralCard = ({ role, icon, title, tip }: { role: Role; icon: string; title: string; tip: string }) => {
-    const members = membersOf(role, null);
-    const active = iAm(role, null);
+  const roleGroup = (role: Role, team: Team | null, icon: string, title: string, single = false) => {
+    const list = others(role, team);
+    // Rol de ocupación única (jefe de espías): si ya lo tiene otro, no se puede unir.
+    const taken = single && list.length > 0;
+    return (
+      <div className="role-group">
+        <div className="role-group-title"><span>{icon}</span> {title}</div>
+        {list.length > 0 && (
+          <ul className="members">
+            {list.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
+          </ul>
+        )}
+        {(iAm(role, team) || !taken) && joinSlot(role, team)}
+      </div>
+    );
+  };
+
+  const neutralCard = (role: Role, icon: string, title: string, tip: string) => {
+    const list = others(role, null);
     return (
       <div className="info-card">
         <div className="info-head">
@@ -80,14 +103,12 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           <span className="tip" tabIndex={0} role="img" aria-label={`info: ${tip}`} data-tip={tip}>ⓘ</span>
         </div>
         <div className="info-body">
-          {members.length > 0 && (
+          {list.length > 0 && (
             <ul className="members">
-              {members.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
+              {list.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
             </ul>
           )}
-          {!active && (
-            <button className="join-btn" onClick={() => setRole(role, null)}>Unirme</button>
-          )}
+          {joinSlot(role, null)}
         </div>
       </div>
     );
@@ -108,25 +129,21 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       <div className="lobby-teams">
         <div className="team-panel red">
           <div className="team-panel-head">🔴 Equipo Rojo</div>
-          <RoleGroup role="spymaster" team="red" icon="🕵️" title="Jefe de espías" />
-          <RoleGroup role="operative" team="red" icon="👤" title="Agentes" />
+          {roleGroup('spymaster', 'red', '🕵️', 'Jefe de espías', true)}
+          {roleGroup('operative', 'red', '👤', 'Agentes')}
         </div>
         <div className="team-panel blue">
           <div className="team-panel-head">🔵 Equipo Azul</div>
-          <RoleGroup role="spymaster" team="blue" icon="🕵️" title="Jefe de espías" />
-          <RoleGroup role="operative" team="blue" icon="👤" title="Agentes" />
+          {roleGroup('spymaster', 'blue', '🕵️', 'Jefe de espías', true)}
+          {roleGroup('operative', 'blue', '👤', 'Agentes')}
         </div>
       </div>
 
       <div className="lobby-neutrals">
-        <NeutralCard
-          role="tableBoard" icon="📺" title="Mesa / TV"
-          tip="Pantalla compartida (TV): puede revelar cartas de ambos equipos y terminar turnos. Ideal para juntadas presenciales."
-        />
-        <NeutralCard
-          role="spectator" icon="👁️" title="Espectadores"
-          tip="Solo observa la partida: no revela cartas ni da pistas."
-        />
+        {neutralCard('tableBoard', '📺', 'Mesa / TV',
+          'Pantalla compartida (TV): puede revelar cartas de ambos equipos y terminar turnos. Ideal para juntadas presenciales.')}
+        {neutralCard('spectator', '👁️', 'Espectadores',
+          'Solo observa la partida: no revela cartas ni da pistas.')}
       </div>
 
       {me && isTeamRole(me.role) && (

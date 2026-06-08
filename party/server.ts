@@ -144,6 +144,11 @@ export default class Server implements Party.Server {
         if (team && this.teamCount(team, sender.id) >= MAX_PER_TEAM) {
           return this.fail(sender, `El equipo ${team === 'red' ? 'Rojo' : 'Azul'} está completo (${MAX_PER_TEAM}).`);
         }
+        // Un solo jefe de espías por equipo.
+        if (msg.role === 'spymaster' && team &&
+            [...this.players.values()].some(p => p.id !== sender.id && p.role === 'spymaster' && p.team === team)) {
+          return this.fail(sender, `El equipo ${team === 'red' ? 'Rojo' : 'Azul'} ya tiene jefe de espías.`);
+        }
         player.role = msg.role;
         player.team = team;
         player.ready = false; // cambiar de asiento te marca como no listo

@@ -5,6 +5,10 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(getTheme);
   const toggle = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    // Habilitar la transición de colores solo durante el cambio (no en la carga).
+    const root = document.documentElement;
+    root.classList.add('theme-anim');
+    window.setTimeout(() => root.classList.remove('theme-anim'), 450);
     applyTheme(next);
     setTheme(next);
   };
