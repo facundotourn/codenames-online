@@ -1,7 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { applyTheme, getTheme } from './theme';
 import './styles.css';
+
+// Aplicar el tema guardado antes del primer render (evita parpadeo).
+applyTheme(getTheme());
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

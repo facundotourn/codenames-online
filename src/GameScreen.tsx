@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { teamLabel, gameViable } from '../party/rules';
-import { MAX_AI_CLUES } from '../party/types';
+import { MAX_AI_CLUES, VIABILITY_GRACE_MS } from '../party/types';
 import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
+import { ThemeToggle } from './components/ThemeToggle';
 import { confettiSupported, fireVictoryConfetti } from './confetti';
 
 const lsBool = (key: string, def: boolean) => {
@@ -62,6 +63,22 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
   const atRisk = showDisconnects && !gameViable(players);
   const discNames = disconnected.map(p => p.name).join(', ');
   const verb = disconnected.length > 1 ? 'se desconectaron' : 'se desconectó';
+
+  // Cuenta regresiva de la gracia (§16): arranca cuando la partida queda en
+  // riesgo y se cancela si se recupera la viabilidad (alguien reconecta).
+  const [graceMs, setGraceMs] = useState<number | null>(null);
+  const graceStart = useRef<number | null>(null);
+  useEffect(() => {
+    if (!atRisk) { graceStart.current = null; setGraceMs(null); return; }
+    if (graceStart.current === null) graceStart.current = Date.now();
+    const tick = () => {
+      const left = Math.max(0, VIABILITY_GRACE_MS - (Date.now() - (graceStart.current ?? Date.now())));
+      setGraceMs(left);
+    };
+    tick();
+    const iv = setInterval(tick, 200);
+    return () => clearInterval(iv);
+  }, [atRisk]);
 
   // Tras el render: registrá el board/score actuales y la última carta revelada.
   useEffect(() => {
@@ -125,7 +142,10 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
   return (
     <div className={`screen${isTV ? ' tv' : ''}`}>
       <header className="room-head">
-        <div>
+        {isHost
+          ? <button className="ghost back-btn" onClick={() => send({ type: 'returnToLobby' })}>← Volver al lobby</button>
+          : <button className="ghost back-btn" onClick={onLeave}>← Salir</button>}
+        <div className="head-title">
           <h2>Partida{isTV && ' · mesa'}</h2>
           <p className="tag">
             <span className="score-red">{state.remaining.red}</span> – <span className="score-blue">{state.remaining.blue}</span>
@@ -133,6 +153,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           </p>
         </div>
         <div className="head-actions">
+          <ThemeToggle />
           <div className="settings-wrapper" ref={menuRef}>
             <button
               className={`settings-btn${menuOpen ? ' active' : ''}`}
@@ -160,7 +181,6 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
               </div>
             )}
           </div>
-          <button className="ghost" onClick={onLeave}>Salir</button>
         </div>
       </header>
 
@@ -171,7 +191,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
         </div>
       ) : (
         <div className={`status-bar turn-${state.turn}`}>
-          <span>Turno de <strong>{teamLabel(state.turn)}</strong></span>
+          <span className="turn-chip">Turno de {teamLabel(state.turn)}</span>
           {state.phase === 'awaitingClue' && <span className="muted">esperando la pista del jefe…</span>}
           {state.phase === 'guessing' && state.clue && (
             <span className="clue">
@@ -183,8 +203,17 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
 
       {showDisconnects && (
         <div className="notice-bar">
-          ⚠ <strong>{discNames}</strong> {verb}.
-          {atRisk && ' La partida volverá al lobby si no vuelve pronto.'}
+          <div className="notice-msg">
+            ⚠ <strong>{discNames}</strong> {verb}.{atRisk && ' Si no vuelve, la partida se cancela.'}
+          </div>
+          {atRisk && graceMs !== null && (
+            <div className="grace">
+              <span className="grace-text">⏳ Vuelve al lobby en {Math.ceil(graceMs / 1000)}s</span>
+              <span className="grace-bar">
+                <i style={{ width: `${(graceMs / VIABILITY_GRACE_MS) * 100}%` }} />
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -218,18 +247,25 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           </div>
           <div className="ai-row">
             <button className="ghost ai-btn" onClick={askAI} disabled={askingAI || aiCluesLeft <= 0}>
-              {askingAI
-                ? '🤔 Pensando…'
-                : aiCluesLeft <= 0
-                  ? '💡 Sin sugerencias de IA'
-                  : `💡 Sugerir pista (IA) · ${aiCluesLeft} restante${aiCluesLeft === 1 ? '' : 's'}`}
+              <span className="ai-ico">💡</span>
+              {askingAI ? 'Pensando…' : 'Sugerir pista'}
+              <span className="ai-credits" aria-label={`${aiCluesLeft} de ${MAX_AI_CLUES} sugerencias`}>
+                {Array.from({ length: MAX_AI_CLUES }).map((_, i) => (
+                  <i key={i} className={i < aiCluesLeft ? 'on' : ''} />
+                ))}
+              </span>
             </button>
+            {aiCluesLeft <= 0 && (
+              <span className="tip" tabIndex={0} role="img"
+                aria-label={`info: ya usaste tus ${MAX_AI_CLUES} sugerencias`}
+                data-tip={`Ya usaste tus ${MAX_AI_CLUES} sugerencias de IA de esta partida.`}>ⓘ</span>
+            )}
           </div>
           {clueSuggestion && (
             <div className="ai-suggestion">
               <div className="ai-suggestion-head">
-                <span className="ai-clue">«{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
-                <button onClick={useSuggestion}>Usar</button>
+                <span className="ai-clue">💡 «{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
+                <button className="ai-use" onClick={useSuggestion}>Usar</button>
               </div>
               {clueSuggestion.words.length > 0 && (
                 <p className="ai-words">
@@ -257,9 +293,6 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
         {guessingNow && <button onClick={() => send({ type: 'endTurn' })}>Terminar turno</button>}
         {showWin && isHost && (
           <button className="start-btn" onClick={() => send({ type: 'newGame' })}>Nueva partida</button>
-        )}
-        {isHost && (
-          <button className="ghost" onClick={() => send({ type: 'returnToLobby' })}>Volver al lobby</button>
         )}
       </section>
 

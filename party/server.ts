@@ -3,7 +3,7 @@ import type {
   GameState, Player, Phase, Card, Team, Clue,
   ClientMessage, ServerMessage,
 } from './types';
-import { MAX_PER_TEAM, MAX_AI_CLUES } from './types';
+import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS } from './types';
 import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
 import { generateBoard } from './game';
 
@@ -15,10 +15,6 @@ function normalize(s: string): string {
 // La sala (y la partida en curso) se descarta tras este lapso con TODOS los
 // participantes desconectados (§14).
 const ABANDON_MS = 5 * 60 * 1000;
-
-// Gracia antes de abortar una partida inviable (§16): da tiempo a que un jugador
-// que se cayó (o recargó la página) reconecte sin tumbar la partida de todos.
-const VIABILITY_GRACE_MS = 20 * 1000;
 
 // Sugerencia de pista por IA (§13): modelo y rate-limit por sala para acotar
 // costo. La key vive segura en el server (variable de entorno).

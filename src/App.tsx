@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Room } from './Room';
+import { ThemeToggle } from './components/ThemeToggle';
 
 // Identidad por pestaña, persistida en sessionStorage: una recarga (F5) reconecta
 // al mismo asiento (§14). Como al DUPLICAR una pestaña el navegador copia el
@@ -113,6 +114,7 @@ export default function App() {
 
   return (
     <div className="screen welcome">
+      <div className="screen-top"><ThemeToggle /></div>
       <div className="hero">
         <div className="hero-logo">🕵️</div>
         <h1><span className="r">Code</span><span className="b">names</span> <span className="hero-on">Online</span></h1>

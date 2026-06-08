@@ -48,6 +48,9 @@ export interface GameState {
 export const MAX_PER_TEAM = 10;
 // Sugerencias de pista por IA que cada jefe puede pedir por partida (§13).
 export const MAX_AI_CLUES = 2;
+// Gracia antes de abortar una partida inviable (§16). Compartida server/cliente
+// para que la cuenta regresiva del aviso coincida con el timer real del server.
+export const VIABILITY_GRACE_MS = 20 * 1000;
 
 // ── Protocolo de mensajes ──
 

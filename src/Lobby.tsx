@@ -1,6 +1,7 @@
 import type { Player, Role, Team } from '../party/types';
 import { startBlockReason, isTeamRole } from '../party/rules';
 import type { RoomViewProps } from './viewProps';
+import { ThemeToggle } from './components/ThemeToggle';
 
 const CrownIcon = () => (
   <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -99,7 +100,10 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           <h2>Sala <code className="room-code">{room}</code></h2>
           <p className="tag">Compartí el código para que se unan · sos <strong>{me?.name ?? '—'}</strong></p>
         </div>
-        <button className="ghost" onClick={onLeave}>Salir</button>
+        <div className="head-actions">
+          <ThemeToggle />
+          <button className="ghost" onClick={onLeave}>Salir</button>
+        </div>
       </header>
 
       <div className="lobby-teams">
