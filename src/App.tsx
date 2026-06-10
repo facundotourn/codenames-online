@@ -61,10 +61,12 @@ function parseRoom(): string | null {
 export default function App() {
   const [name, setName] = useState(() => localStorage.getItem('playerName') ?? '');
   const [codeInput, setCodeInput] = useState(() => parseRoom() ?? '');
-  const [joined, setJoined] = useState<{ room: string; name: string } | null>(() => {
+  // `fresh` marca una sala recién creada por mí (para el loader "Creando tu sala…");
+  // al reconectar por F5 o back/forward es un reingreso, así que va en false.
+  const [joined, setJoined] = useState<{ room: string; name: string; fresh: boolean } | null>(() => {
     const room = parseRoom();
     const storedName = (localStorage.getItem('playerName') ?? '').trim();
-    return room && storedName ? { room, name: storedName } : null;
+    return room && storedName ? { room, name: storedName, fresh: false } : null;
   });
 
   const canEnter = name.trim().length > 0;
@@ -74,20 +76,20 @@ export default function App() {
     const onPop = () => {
       const room = parseRoom();
       const storedName = (localStorage.getItem('playerName') ?? '').trim();
-      setJoined(room && storedName ? { room, name: storedName } : null);
+      setJoined(room && storedName ? { room, name: storedName, fresh: false } : null);
       if (room) setCodeInput(room);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const enter = (room: string) => {
+  const enter = (room: string, fresh = false) => {
     if (!canEnter) return;
     const finalName = name.trim();
     const code = room.toUpperCase();
     localStorage.setItem('playerName', finalName);
     window.history.pushState({}, '', `/room/${code}`);
-    setJoined({ room: code, name: finalName });
+    setJoined({ room: code, name: finalName, fresh });
   };
 
   const leave = () => {
@@ -95,10 +97,10 @@ export default function App() {
     setJoined(null);
   };
 
-  const createRoom = () => enter(generateRoomCode());
+  const createRoom = () => enter(generateRoomCode(), true);
   const joinRoom = () => {
     const room = codeInput.trim().toUpperCase();
-    if (room) enter(room);
+    if (room) enter(room, false);
   };
 
   if (joined) {
@@ -107,6 +109,7 @@ export default function App() {
         playerId={PLAYER_ID}
         room={joined.room}
         name={joined.name}
+        creating={joined.fresh}
         onLeave={leave}
       />
     );

@@ -15,10 +15,30 @@ interface Props {
   playerId: string;
   room: string;
   name: string;
+  creating?: boolean;
   onLeave: () => void;
 }
 
-export function Room({ playerId, room, name, onLeave }: Props) {
+// Loading temático mientras se conecta: tres cartitas (rojo · violeta · azul)
+// que se dan vuelta en secuencia, con el código de la sala.
+function Connecting({ room, creating }: { room: string; creating?: boolean }) {
+  return (
+    <div className="screen connecting">
+      <div className="loader">
+        <div className="loader-cards" aria-hidden="true">
+          <span className="lc lc-red" />
+          <span className="lc lc-neutral" />
+          <span className="lc lc-blue" />
+        </div>
+        <p className="loader-text">
+          {creating ? 'Creando tu sala' : 'Entrando a la sala'} <code className="room-code">{room}</code>…
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function Room({ playerId, room, name, creating, onLeave }: Props) {
   const [state, setState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<ClueSuggestion | null>(null);
@@ -52,7 +72,7 @@ export function Room({ playerId, room, name, onLeave }: Props) {
   const send = (msg: ClientMessage) => socket.send(JSON.stringify(msg));
 
   if (!state) {
-    return <div className="screen"><p className="tag">Conectando a la sala…</p></div>;
+    return <Connecting room={room} creating={creating} />;
   }
 
   const me = state.players[playerId];
