@@ -248,7 +248,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Mismo alto que .join-btn para que unirse no salte la interfaz */
 .member { display: flex; align-items: center; gap: 7px; font-size: 14px; padding: 4px 9px; min-height: 38px; border-radius: 11px; }
 .member.offline { opacity: 0.5; }
-/* Entrada suave de los chips de otros (el mío usa el FLIP de unirse) */
+/* Entrada suave de los chips de otros (el mío usa el flip 3D del slot de unirse) */
 .member:not(.me) { animation: memberIn 0.3s ease; }
 @keyframes memberIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 /* Tu propio chip, resaltado para encontrarte de un vistazo */
@@ -268,8 +268,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .join-btn:hover { border-color: var(--accent-border); background: var(--accent-soft); filter: none; }
 
-/* Slot de unirse (el botón vive al fondo del grupo) */
-.join-slot { min-height: 38px; }
+/* Slot de unirse = flipper 3D: el botón "Unirme" (frente) gira y se convierte
+   en tu chip (dorso). Vive al fondo del grupo de Agentes (margin-top:auto). */
+.join-slot { perspective: 800px; min-height: 38px; }
+.join-flipper { position: relative; width: 100%; min-height: 38px; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.34, 1.5, 0.6, 1); }
+.join-flipper.flipped { transform: rotateX(180deg); }
+.join-front, .join-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.join-back { transform: rotateX(180deg); }
+.join-back .members { margin: 0; }
+.join-flipper.flipped .join-front { pointer-events: none; }
+.join-flipper:not(.flipped) .join-back { pointer-events: none; }
 
 /* Tarjetas neutrales (Mesa/TV, Espectadores) — mismo lenguaje que los equipos */
 .lobby-neutrals { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }

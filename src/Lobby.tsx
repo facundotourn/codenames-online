@@ -1,4 +1,3 @@
-import { useRef, useLayoutEffect, type RefObject } from 'react';
 import type { Player, Role, Team } from '../party/types';
 import { startBlockReason, isTeamRole } from '../party/rules';
 import type { RoomViewProps } from './viewProps';
@@ -24,12 +23,10 @@ const RingIcon = () => (
   </svg>
 );
 
-function MemberChip({ player, hostId, meId, chipRef }: {
-  player: Player; hostId: string; meId?: string; chipRef?: RefObject<HTMLLIElement>;
-}) {
+function MemberChip({ player, hostId, meId }: { player: Player; hostId: string; meId?: string }) {
   const isMe = player.id === meId;
   return (
-    <li ref={chipRef} className={`member${player.connected ? '' : ' offline'}${isMe ? ' me' : ''}`}>
+    <li className={`member${player.connected ? '' : ' offline'}${isMe ? ' me' : ''}`}>
       <span className={`dot ${player.connected ? 'on' : 'off'}`} />
       <span className="pname">{player.name}</span>
       {hostId === player.id && (
@@ -44,61 +41,6 @@ function MemberChip({ player, hostId, meId, chipRef }: {
   );
 }
 
-// Lista de miembros (incluido yo, arriba) + botón "Unirme" al fondo. Cuando me
-// uno, animo mi chip con un FLIP: arranca donde estaba el botón (abajo) y sube
-// girando hasta su lugar en la lista.
-function MemberSlot({ members, me, hostId, active, showJoin, onJoin }: {
-  members: Player[]; me: Player | undefined; hostId: string;
-  active: boolean; showJoin: boolean; onJoin: () => void;
-}) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const lastBtnTop = useRef<number | null>(null);
-  const myChip = useRef<HTMLLIElement>(null);
-  const wasActive = useRef(active);
-
-  // Recordá dónde está el botón mientras exista (para el FLIP al unirse).
-  useLayoutEffect(() => {
-    if (btnRef.current) lastBtnTop.current = btnRef.current.getBoundingClientRect().top;
-  });
-
-  useLayoutEffect(() => {
-    if (!wasActive.current && active && myChip.current && lastBtnTop.current != null
-        && typeof myChip.current.animate === 'function') {
-      const delta = lastBtnTop.current - myChip.current.getBoundingClientRect().top;
-      if (Math.abs(delta) > 1) {
-        myChip.current.animate(
-          [
-            { transform: `perspective(600px) translateY(${delta}px) rotateX(-90deg)`, opacity: 0.2 },
-            { transform: 'perspective(600px) translateY(0) rotateX(0deg)', opacity: 1 },
-          ],
-          { duration: 420, easing: 'cubic-bezier(0.34, 1.45, 0.6, 1)' },
-        );
-      }
-    }
-    wasActive.current = active;
-  }, [active]);
-
-  return (
-    <>
-      {members.length > 0 && (
-        <ul className="members">
-          {members.map(p => (
-            <MemberChip
-              key={p.id} player={p} hostId={hostId} meId={me?.id}
-              chipRef={p.id === me?.id ? myChip : undefined}
-            />
-          ))}
-        </ul>
-      )}
-      {showJoin && (
-        <div className="join-slot">
-          <button ref={btnRef} className="join-btn" onClick={onJoin}>Unirme</button>
-        </div>
-      )}
-    </>
-  );
-}
-
 export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) {
   const players = Object.values(state.players);
   const isHost = state.hostId === me?.id;
@@ -109,27 +51,53 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
   const setRole = (role: Role, team: Team | null) => send({ type: 'setRole', role, team });
   const membersOf = (role: Role, team: Team | null) =>
     players.filter(p => p.role === role && (p.team ?? null) === team);
+  // Otros miembros del grupo (yo me muestro vía el flipper del slot de unirse).
+  const others = (role: Role, team: Team | null) =>
+    membersOf(role, team).filter(p => p.id !== me?.id);
+
+  // El "slot" de unirse es un flipper 3D: frente = botón "Unirme", dorso = tu
+  // chip. Gira (rotateX) según si estás en este grupo, así el botón se "da
+  // vuelta" y se convierte en tu cartel (y vuelve si te cambiás de equipo).
+  // Se llama como función (no como <Componente/>) para que el elemento persista
+  // entre renders y la transición CSS pueda animar.
+  const joinSlot = (role: Role, team: Team | null) => {
+    const active = iAm(role, team);
+    return (
+      <div className="join-slot">
+        <div className={`join-flipper${active ? ' flipped' : ''}`}>
+          <button className="join-btn join-front" onClick={() => setRole(role, team)} tabIndex={active ? -1 : 0}>
+            Unirme
+          </button>
+          <div className="join-back">
+            {me && <ul className="members"><MemberChip player={me} hostId={state.hostId} meId={me.id} /></ul>}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const roleGroup = (role: Role, team: Team | null, icon: string, title: string, single = false) => {
-    const members = membersOf(role, team);
+    const list = others(role, team);
     const active = iAm(role, team);
-    // Rol de ocupación única (jefe): si ya lo tiene otro, no se puede unir.
-    const taken = single && members.some(p => p.id !== me?.id);
+    // Rol de ocupación única (jefe de espías): si ya lo tiene otro, no se puede unir.
+    const taken = single && list.length > 0;
     return (
       <div className="role-group">
         <div className="role-group-title"><span>{icon}</span> {title}</div>
-        <MemberSlot
-          members={members} me={me} hostId={state.hostId}
-          active={active} showJoin={!active && !taken}
-          onJoin={() => setRole(role, team)}
-        />
+        <AutoHeight className="members-wrap">
+          {list.length > 0 && (
+            <ul className="members">
+              {list.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
+            </ul>
+          )}
+        </AutoHeight>
+        {(active || !taken) && joinSlot(role, team)}
       </div>
     );
   };
 
   const neutralCard = (role: Role, icon: string, title: string, tip: string) => {
-    const members = membersOf(role, null);
-    const active = iAm(role, null);
+    const list = others(role, null);
     return (
       <div className="info-card">
         <div className="info-head">
@@ -137,13 +105,16 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           <span className="info-title">{title}</span>
           <span className="tip" tabIndex={0} role="img" aria-label={`info: ${tip}`} data-tip={tip}>i</span>
         </div>
-        <AutoHeight className="info-body">
-          <MemberSlot
-            members={members} me={me} hostId={state.hostId}
-            active={active} showJoin={!active}
-            onJoin={() => setRole(role, null)}
-          />
-        </AutoHeight>
+        <div className="info-body">
+          <AutoHeight className="members-wrap">
+            {list.length > 0 && (
+              <ul className="members">
+                {list.map(p => <MemberChip key={p.id} player={p} hostId={state.hostId} meId={me?.id} />)}
+              </ul>
+            )}
+          </AutoHeight>
+          {joinSlot(role, null)}
+        </div>
       </div>
     );
   };
@@ -161,16 +132,16 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       </header>
 
       <div className="lobby-teams">
-        <AutoHeight className="team-panel red">
+        <div className="team-panel red">
           <div className="team-panel-head">🔴 Equipo Rojo</div>
           {roleGroup('spymaster', 'red', '🕵️', 'Jefe de espías', true)}
           {roleGroup('operative', 'red', '👤', 'Agentes')}
-        </AutoHeight>
-        <AutoHeight className="team-panel blue">
+        </div>
+        <div className="team-panel blue">
           <div className="team-panel-head">🔵 Equipo Azul</div>
           {roleGroup('spymaster', 'blue', '🕵️', 'Jefe de espías', true)}
           {roleGroup('operative', 'blue', '👤', 'Agentes')}
-        </AutoHeight>
+        </div>
       </div>
 
       <div className="lobby-neutrals">
