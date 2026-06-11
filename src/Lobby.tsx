@@ -44,13 +44,14 @@ function MemberChip({ player, hostId, meId }: { player: Player; hostId: string; 
 export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) {
   const players = Object.values(state.players);
   const isHost = state.hostId === me?.id;
+  const aiOn = state.aiTeam === 'blue';
   const blockReason = startBlockReason(players);
   const hostName = state.players[state.hostId]?.name ?? '—';
 
   const iAm = (role: Role, team: Team | null) => me?.role === role && (me?.team ?? null) === team;
   const setRole = (role: Role, team: Team | null) => send({ type: 'setRole', role, team });
   const membersOf = (role: Role, team: Team | null) =>
-    players.filter(p => p.role === role && (p.team ?? null) === team);
+    players.filter(p => !p.isAI && p.role === role && (p.team ?? null) === team);
   // Otros miembros del grupo (yo me muestro vía el flipper del slot de unirse).
   const others = (role: Role, team: Team | null) =>
     membersOf(role, team).filter(p => p.id !== me?.id);
@@ -96,6 +97,25 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
     );
   };
 
+  // Asiento de un jugador IA (bloqueado, no se puede unir nadie humano).
+  const aiSeat = (icon: string, title: string, role: Role) => {
+    const bot = players.find(p => p.isAI && p.role === role);
+    return (
+      <div className="role-group">
+        <div className="role-group-title"><span>{icon}</span> {title}</div>
+        <ul className="members">
+          {bot && (
+            <li className="member ai">
+              <span className="ai-avatar">🤖</span>
+              <span className="pname">{bot.name}</span>
+              <span className="mi mi-lock" title="Asiento de IA (bloqueado)">🔒</span>
+            </li>
+          )}
+        </ul>
+      </div>
+    );
+  };
+
   const neutralCard = (role: Role, icon: string, title: string, tip: string) => {
     const list = others(role, null);
     return (
@@ -137,10 +157,37 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           {roleGroup('spymaster', 'red', '🕵️', 'Jefe de espías', true)}
           {roleGroup('operative', 'red', '👤', 'Agentes')}
         </div>
-        <div className="team-panel blue">
-          <div className="team-panel-head">🔵 Equipo Azul</div>
-          {roleGroup('spymaster', 'blue', '🕵️', 'Jefe de espías', true)}
-          {roleGroup('operative', 'blue', '👤', 'Agentes')}
+        <div className="team-slot">
+          <div className={`team-flip${aiOn ? ' flipped' : ''}`}>
+            <div className="team-panel blue flip-face flip-front">
+              <div className="team-panel-head">
+                <span>🔵 Equipo Azul</span>
+                {isHost && (
+                  <button
+                    className="head-ai-btn"
+                    onClick={() => send({ type: 'setAITeam', enabled: true })}
+                    title="Jugar contra la IA"
+                  >🤖</button>
+                )}
+              </div>
+              {roleGroup('spymaster', 'blue', '🕵️', 'Jefe de espías', true)}
+              {roleGroup('operative', 'blue', '👤', 'Agentes')}
+            </div>
+            <div className="team-panel ai flip-face flip-back">
+              <div className="team-panel-head ai-head">
+                <span>🤖 Equipo IA</span>
+                {isHost && (
+                  <button
+                    className="head-ai-btn"
+                    onClick={() => send({ type: 'setAITeam', enabled: false })}
+                    title="Quitar el equipo IA"
+                  >✕</button>
+                )}
+              </div>
+              {aiSeat('🕵️', 'Jefe de espías', 'spymaster')}
+              {aiSeat('👤', 'Agente', 'operative')}
+            </div>
+          </div>
         </div>
       </div>
 

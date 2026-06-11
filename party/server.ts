@@ -1,6 +1,6 @@
 import type * as Party from 'partykit/server';
 import type {
-  GameState, Player, Phase, Card, Team, Clue,
+  GameState, Player, Phase, Card, Team, Clue, Role, AiActivity,
   ClientMessage, ServerMessage,
 } from './types';
 import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS } from './types';
@@ -21,6 +21,15 @@ const ABANDON_MS = 5 * 60 * 1000;
 const CLUE_MODEL = 'claude-haiku-4-5';
 const CLUE_COOLDOWN_MS = 6 * 1000;
 
+// Ritmo del turno del equipo IA (§13.5): pausado a propósito, para que los
+// humanos lean el razonamiento del agente. Tiempos en ms.
+const AI_CLUE_THINK_MS = 3500;    // mínimo que dura "el jefe IA piensa"
+const AI_CLUE_READ_MS = 2600;     // pausa para leer la pista antes de adivinar
+const AI_GUESS_THINK_MS = 2400;   // "el agente IA lee la pista"
+const AI_ANALYSIS_READ_MS = 4200; // pausa para leer el análisis del agente
+const AI_GUESS_ANNOUNCE_MS = 2800;// anuncia cada intento antes de revelar
+const AI_GUESS_AFTER_MS = 1700;   // pausa tras revelar una carta
+
 // Snapshot serializable del estado, persistido en DO Storage para sobrevivir
 // reinicios del Durable Object y permitir reconexión.
 interface Snapshot {
@@ -33,6 +42,7 @@ interface Snapshot {
   clue: Clue | null;
   remaining: { red: number; blue: number };
   winner: Team | null;
+  aiTeam: Team | null;
 }
 
 // ── Fases 1-4 ──
@@ -52,6 +62,14 @@ export default class Server implements Party.Server {
   private clue: Clue | null = null;
   private remaining = { red: 0, blue: 0 };
   private winner: Team | null = null;
+  private aiTeam: Team | null = null;
+
+  // Motor del equipo IA: narración efímera + flag de turno en curso + un
+  // "generation" que invalida un turno IA en vuelo si la partida se reinicia.
+  private aiActivity: AiActivity | null = null;
+  private aiLog = '';
+  private aiRunning = false;
+  private aiGen = 0;
 
   // Timer de gracia de viabilidad (en memoria; la sala sigue viva porque hay
   // otros participantes conectados durante la ventana).
@@ -66,8 +84,11 @@ export default class Server implements Party.Server {
   async onStart() {
     const snap = await this.room.storage.get<Snapshot>('snapshot');
     if (!snap) return;
-    // Al arrancar nadie está conectado todavía; se marcan al reconectar.
-    this.players = new Map(snap.players.map(([id, p]) => [id, { ...p, connected: false, aiCluesUsed: p.aiCluesUsed ?? 0 }]));
+    // Al arrancar nadie está conectado todavía; se marcan al reconectar. Los
+    // jugadores IA no tienen conexión real: viven siempre "conectados" y listos.
+    this.players = new Map(snap.players.map(([id, p]) => [id, {
+      ...p, connected: p.isAI === true, aiCluesUsed: p.aiCluesUsed ?? 0,
+    }]));
     this.hostId = snap.hostId;
     this.phase = snap.phase;
     this.board = snap.board;
@@ -76,6 +97,7 @@ export default class Server implements Party.Server {
     this.clue = snap.clue;
     this.remaining = snap.remaining;
     this.winner = snap.winner;
+    this.aiTeam = snap.aiTeam ?? null;
     // Si quedó gente pero nadie se reconecta, la sala se limpia sola.
     if (this.players.size > 0) await this.room.storage.setAlarm(Date.now() + ABANDON_MS);
   }
@@ -118,6 +140,8 @@ export default class Server implements Party.Server {
     // Alguien volvió: cancelar el descarte de sala abandonada.
     await this.room.storage.deleteAlarm();
     this.broadcastState();
+    // Si quedó un turno IA pendiente (p. ej. el DO se reinició), retomarlo.
+    this.maybeRunAI();
   }
 
   onMessage(raw: string, sender: Party.Connection) {
@@ -141,6 +165,9 @@ export default class Server implements Party.Server {
           return this.fail(sender, 'No se puede cambiar de rol con la partida en curso.');
         }
         const team = isTeamRole(msg.role) ? msg.team : null;
+        if (team && team === this.aiTeam) {
+          return this.fail(sender, 'El equipo IA no admite jugadores humanos.');
+        }
         if (team && this.teamCount(team, sender.id) >= MAX_PER_TEAM) {
           return this.fail(sender, `El equipo ${team === 'red' ? 'Rojo' : 'Azul'} está completo (${MAX_PER_TEAM}).`);
         }
@@ -158,6 +185,18 @@ export default class Server implements Party.Server {
       case 'setReady':
         player.ready = msg.value;
         break;
+
+      case 'setAITeam': {
+        if (sender.id !== this.hostId) {
+          return this.fail(sender, 'Solo el host puede activar el equipo IA.');
+        }
+        if (this.phase !== 'lobby') {
+          return this.fail(sender, 'El equipo IA solo se cambia en el lobby.');
+        }
+        // Solo el azul puede ser IA (decisión de diseño).
+        this.setAITeam(msg.enabled ? 'blue' : null);
+        break;
+      }
 
       case 'startGame': {
         if (sender.id !== this.hostId) {
@@ -197,6 +236,7 @@ export default class Server implements Party.Server {
 
       case 'guess': {
         if (this.phase !== 'guessing') return this.fail(sender, 'No es momento de adivinar.');
+        if (this.turn === this.aiTeam) return this.fail(sender, 'Es el turno de la IA, esperá.');
         if (!this.canGuess(player)) return this.fail(sender, 'No podés revelar cartas en este turno.');
         const card = this.board.find(c => c.id === msg.cardId);
         if (!card || card.revealed) return;
@@ -207,6 +247,7 @@ export default class Server implements Party.Server {
 
       case 'endTurn': {
         if (this.phase !== 'guessing') return;
+        if (this.turn === this.aiTeam) return this.fail(sender, 'Es el turno de la IA, esperá.');
         if (!this.canGuess(player)) return this.fail(sender, 'No podés terminar el turno ahora.');
         this.passTurn();
         break;
@@ -230,6 +271,7 @@ export default class Server implements Party.Server {
     }
 
     this.broadcastState();
+    this.maybeRunAI();
   }
 
   async onClose(conn: Party.Connection) {
@@ -270,6 +312,7 @@ export default class Server implements Party.Server {
     if (!this.noneConnected()) return;
     this.players.clear();
     this.hostId = null;
+    this.aiTeam = null;
     this.resetToLobby();
     await this.room.storage.deleteAll();
   }
@@ -277,6 +320,9 @@ export default class Server implements Party.Server {
   // ── Transiciones ──
 
   private startGame() {
+    this.aiGen++; // invalida cualquier turno IA en vuelo
+    this.aiActivity = null;
+    this.aiLog = '';
     const { board, startingTeam, remaining } = generateBoard();
     this.phase = 'awaitingClue';
     this.board = board;
@@ -290,6 +336,9 @@ export default class Server implements Party.Server {
   }
 
   private resetToLobby() {
+    this.aiGen++; // invalida cualquier turno IA en vuelo
+    this.aiActivity = null;
+    this.aiLog = '';
     if (this.viabilityTimer) { clearTimeout(this.viabilityTimer); this.viabilityTimer = null; }
     // En el lobby no se preservan asientos: se descartan los desconectados para no
     // dejar fantasmas que bloqueen el inicio (no estarán "ready" nunca).
@@ -300,7 +349,32 @@ export default class Server implements Party.Server {
     this.clue = null;
     this.winner = null;
     this.remaining = { red: 0, blue: 0 };
-    for (const p of this.players.values()) p.ready = false;
+    // El equipo IA persiste entre partidas y siempre está listo.
+    for (const p of this.players.values()) if (!p.isAI) p.ready = false;
+  }
+
+  // Activa/desactiva el equipo IA en un equipo (solo lobby). Al activarlo, saca a
+  // los humanos de ese equipo y sienta un jefe + un agente sintéticos (sin
+  // conexión, siempre listos). Al desactivarlo, los quita.
+  private setAITeam(team: Team | null) {
+    if (team === this.aiTeam) return;
+    for (const [id, p] of this.players) if (p.isAI) this.players.delete(id);
+    this.aiTeam = team;
+    if (team) {
+      for (const p of this.players.values()) {
+        if (isTeamRole(p.role) && p.team === team) {
+          p.role = 'spectator';
+          p.team = null;
+          p.ready = false;
+        }
+      }
+      this.players.set(`ai-spymaster-${team}`, this.makeAI(`ai-spymaster-${team}`, 'Jefe IA', 'spymaster', team));
+      this.players.set(`ai-operative-${team}`, this.makeAI(`ai-operative-${team}`, 'Agente IA', 'operative', team));
+    }
+  }
+
+  private makeAI(id: string, name: string, role: Role, team: Team): Player {
+    return { id, name, role, team, connected: true, ready: true, aiCluesUsed: 0, isAI: true };
   }
 
   // Tras la gracia, si la partida sigue inviable, vuelve al lobby con aviso.
@@ -317,23 +391,19 @@ export default class Server implements Party.Server {
     }, VIABILITY_GRACE_MS);
   }
 
-  // Sugerencia de pista por IA (§13): el server arma el prompt con el estado
-  // real del tablero (info autoritativa que ya tiene) y pide a Claude Haiku una
-  // pista. La respuesta vuelve SOLO al jefe que la pidió — nunca a la TV ni a
-  // los operativos. Rate-limit por sala para acotar costo.
+  // Sugerencia de pista por IA (§13) para un jefe HUMANO: valida, controla
+  // rate-limit y responde SOLO a quien la pidió (nunca a la TV ni a operativos).
   private async suggestClue(conn: Party.Connection, player: Player) {
     if (this.phase !== 'awaitingClue') return this.fail(conn, 'No es momento de pedir una pista.');
     if (player.role !== 'spymaster' || player.team !== this.turn) {
       return this.fail(conn, 'Solo el jefe del equipo en turno puede pedir una sugerencia.');
     }
-
     if (player.aiCluesUsed >= MAX_AI_CLUES) {
       return this.fail(conn, `Ya usaste tus ${MAX_AI_CLUES} sugerencias de IA de esta partida.`);
     }
-
-    const apiKey = this.room.env.ANTHROPIC_API_KEY as string | undefined;
-    if (!apiKey) return this.fail(conn, 'La sugerencia por IA no está configurada en el server.');
-
+    if (!this.room.env.ANTHROPIC_API_KEY) {
+      return this.fail(conn, 'La sugerencia por IA no está configurada en el server.');
+    }
     if (this.clueInFlight) return this.fail(conn, 'Ya estoy pensando una pista, esperá un momento…');
     const wait = CLUE_COOLDOWN_MS - (Date.now() - this.lastClueRequestAt);
     if (wait > 0) return this.fail(conn, `Esperá ${Math.ceil(wait / 1000)} s antes de pedir otra sugerencia.`);
@@ -341,123 +411,347 @@ export default class Server implements Party.Server {
     this.clueInFlight = true;
     this.lastClueRequestAt = Date.now();
     try {
-      const own = this.unrevealedWords(player.team);
-      const rival = this.unrevealedWords(player.team === 'red' ? 'blue' : 'red');
-      const neutral = this.unrevealedWords('neutral');
-      const assassin = this.unrevealedWords('assassin');
-
-      // Conjunto de palabras del tablero (normalizadas) para rechazar pistas que
-      // sean una palabra en juego (la IA a veces propone una del tablero).
-      const boardSet = new Set(this.board.map(c => normalize(c.word)));
-      const ownByNorm = new Map(own.map(w => [normalize(w), w]));
-
-      const system =
-        'Sos un jefe de espías experto en Codenames en español. Proponé UNA sola ' +
-        'pista para tu equipo.\n' +
-        'Estrategia (MUY importante):\n' +
-        '- NUNCA conectes más de 2 palabras con una pista. El máximo absoluto es 2.\n' +
-        '- Lo ideal es una pista clara y específica que conecte 2 palabras; conectar 1 ' +
-        'también es perfectamente válido.\n' +
-        '- Priorizá la PRECISIÓN por sobre la cantidad. NO fuerces una pista vaga o ' +
-        'ambigua: es contraproducente, porque una pista débil hace que tu equipo dude o ' +
-        'señale palabras del rival, neutrales o el asesino.\n' +
-        '- La partida dura VARIOS turnos: no hace falta ganar en una sola pista. Más vale ' +
-        'una conexión fuerte de 1-2 palabras que una floja.\n' +
-        'Reglas estrictas para la pista:\n' +
-        '- Una sola palabra en español, SIN números, SIN espacios y SIN caracteres especiales.\n' +
-        '- NUNCA puede ser una palabra del tablero, ni parte, variante o derivada de ellas.\n' +
-        '- Evitá a toda costa el asesino; no orientes hacia palabras del rival ni neutrales.\n' +
-        'Devolvé la pista, la lista EXACTA de palabras de tu equipo (1 o 2, tal cual ' +
-        'aparecen) que conecta de forma sólida, y una frase breve justificando la conexión.';
-
-      const board =
-        `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
-        `Palabras del rival (a evitar): ${rival.join(', ') || '—'}\n` +
-        `Palabras neutrales (a evitar): ${neutral.join(', ') || '—'}\n` +
-        `Asesino (NUNCA orientar hacia acá): ${assassin.join(', ') || '—'}`;
-
-      // Hasta 2 intentos: si la IA devuelve algo inválido (vacío, con números o
-      // una palabra del tablero), reintentamos una vez explicándole el motivo.
-      let lastBad = '';
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const user = attempt === 0
-          ? board
-          : `${board}\n\nTu propuesta anterior («${lastBad}») no sirve: es una palabra del tablero o tiene números/caracteres. Probá otra, respetando las reglas.`;
-
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: CLUE_MODEL,
-            max_tokens: 512,
-            system,
-            messages: [{ role: 'user', content: user }],
-            output_config: {
-              format: {
-                type: 'json_schema',
-                schema: {
-                  type: 'object',
-                  properties: {
-                    word: { type: 'string', description: 'la pista: una sola palabra, sin números ni símbolos' },
-                    words: {
-                      type: 'array', items: { type: 'string' },
-                      description: 'las palabras de tu equipo que conecta la pista, tal cual aparecen en el tablero',
-                    },
-                    reasoning: { type: 'string', description: 'una frase breve explicando la conexión' },
-                  },
-                  required: ['word', 'words', 'reasoning'],
-                  additionalProperties: false,
-                },
-              },
-            },
-          }),
-        });
-
-        if (!res.ok) {
-          console.error('Anthropic API error', res.status, await res.text());
-          return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
-        }
-
-        const data = await res.json() as { content?: { type: string; text?: string }[] };
-        const text = data.content?.find(b => b.type === 'text')?.text;
-        if (!text) return this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
-
-        const parsed = JSON.parse(text) as { word?: string; words?: string[]; reasoning?: string };
-        // Saneo: primer token, solo letras (incluye acentos y ñ).
-        const word = (parsed.word ?? '').trim().split(/\s+/)[0].replace(/[^\p{L}]/gu, '');
-        lastBad = (parsed.word ?? '').trim();
-
-        // Inválida si quedó vacía o coincide con una palabra del tablero.
-        if (!word || boardSet.has(normalize(word))) continue;
-
-        // Quedarnos solo con las palabras propuestas que realmente son del equipo,
-        // y como mucho 2 (regla dura para fomentar el ingenio de los jugadores).
-        const words = (parsed.words ?? [])
-          .map(w => ownByNorm.get(normalize(w)))
-          .filter((w): w is string => !!w)
-          .slice(0, 2);
-        const count = Math.max(1, Math.min(2, words.length || 1));
-
-        // Consumir una de las sugerencias disponibles del jefe y propagar el
-        // contador (el resto del estado no cambia).
-        player.aiCluesUsed++;
-        this.broadcastState();
-
-        const msg: ServerMessage = { type: 'clueSuggestion', word, count, words, reasoning: parsed.reasoning ?? '' };
-        return conn.send(JSON.stringify(msg));
-      }
-
-      this.fail(conn, 'La IA no encontró una pista válida, probá de nuevo.');
+      const result = await this.requestClue(player.team as Team, 2);
+      if (!result) return this.fail(conn, 'La IA no encontró una pista válida, probá de nuevo.');
+      player.aiCluesUsed++;
+      this.broadcastState();
+      const msg: ServerMessage = {
+        type: 'clueSuggestion', word: result.word, count: result.count, words: result.words, reasoning: result.reasoning,
+      };
+      conn.send(JSON.stringify(msg));
     } catch (err) {
       console.error('suggestClue failed', err);
       this.fail(conn, 'No pude generar una sugerencia ahora mismo.');
     } finally {
       this.clueInFlight = false;
     }
+  }
+
+  // Pide a Claude Haiku una pista para `team` con el estado real del tablero.
+  // Devuelve { word, count, words, reasoning } o null si falla / no es válida.
+  // La usan tanto la sugerencia humana como el jefe de espías IA.
+  private async requestClue(team: Team, maxWords: number): Promise<{ word: string; count: number; words: string[]; reasoning: string } | null> {
+    const apiKey = this.room.env.ANTHROPIC_API_KEY as string | undefined;
+    if (!apiKey) return null;
+
+    const own = this.unrevealedWords(team);
+    const rival = this.unrevealedWords(team === 'red' ? 'blue' : 'red');
+    const neutral = this.unrevealedWords('neutral');
+    const assassin = this.unrevealedWords('assassin');
+
+    const boardSet = new Set(this.board.map(c => normalize(c.word)));
+    const ownByNorm = new Map(own.map(w => [normalize(w), w]));
+
+    // La sugerencia para humanos limita a 2 (no resolverles el juego); el jefe
+    // IA juega en serio y conecta tantas como pueda con confianza.
+    const strategy = maxWords <= 2
+      ? '- NUNCA conectes más de 2 palabras con una pista. El máximo absoluto es 2.\n' +
+        '- Lo ideal es una pista clara y específica que conecte 2 palabras; conectar 1 ' +
+        'también es perfectamente válido.\n'
+      : '- Conectá tantas palabras de tu equipo como puedas con UNA sola pista (1, 2, 3 o más), ' +
+        'SIEMPRE que la conexión sea sólida y clara para todas ellas.\n' +
+        '- No te obligues a un número alto: más vale una conexión fuerte de pocas que una floja de muchas.\n';
+
+    const system =
+      'Sos un jefe de espías experto en Codenames en español. Proponé UNA sola ' +
+      'pista para tu equipo.\n' +
+      'Estrategia (MUY importante):\n' +
+      strategy +
+      '- Priorizá la PRECISIÓN por sobre la cantidad. NO fuerces una pista vaga o ' +
+      'ambigua: es contraproducente, porque una pista débil hace que tu equipo dude o ' +
+      'señale palabras del rival, neutrales o el asesino.\n' +
+      '- La partida dura VARIOS turnos: no hace falta ganar en una sola pista. Más vale ' +
+      'una conexión fuerte que una floja.\n' +
+      'Reglas estrictas para la pista:\n' +
+      '- Una sola palabra en español, SIN números, SIN espacios y SIN caracteres especiales.\n' +
+      '- NUNCA puede ser una palabra del tablero, ni parte, variante o derivada de ellas.\n' +
+      '- Evitá a toda costa el asesino; no orientes hacia palabras del rival ni neutrales.\n' +
+      'Devolvé la pista, la lista EXACTA de palabras de tu equipo que conecta de forma ' +
+      'sólida, y una frase breve justificando la conexión.';
+
+    const board =
+      `Palabras de tu equipo (a adivinar): ${own.join(', ') || '—'}\n` +
+      `Palabras del rival (a evitar): ${rival.join(', ') || '—'}\n` +
+      `Palabras neutrales (a evitar): ${neutral.join(', ') || '—'}\n` +
+      `Asesino (NUNCA orientar hacia acá): ${assassin.join(', ') || '—'}`;
+
+    let lastBad = '';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const user = attempt === 0
+        ? board
+        : `${board}\n\nTu propuesta anterior («${lastBad}») no sirve: es una palabra del tablero o tiene números/caracteres. Probá otra, respetando las reglas.`;
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: CLUE_MODEL,
+          max_tokens: 512,
+          system,
+          messages: [{ role: 'user', content: user }],
+          output_config: {
+            format: {
+              type: 'json_schema',
+              schema: {
+                type: 'object',
+                properties: {
+                  word: { type: 'string', description: 'la pista: una sola palabra, sin números ni símbolos' },
+                  words: {
+                    type: 'array', items: { type: 'string' },
+                    description: 'las palabras de tu equipo que conecta la pista, tal cual aparecen en el tablero',
+                  },
+                  reasoning: { type: 'string', description: 'una frase breve explicando la conexión' },
+                },
+                required: ['word', 'words', 'reasoning'],
+                additionalProperties: false,
+              },
+            },
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        console.error('Anthropic API error', res.status, await res.text());
+        return null;
+      }
+
+      const data = await res.json() as { content?: { type: string; text?: string }[] };
+      const text = data.content?.find(b => b.type === 'text')?.text;
+      if (!text) return null;
+
+      const parsed = JSON.parse(text) as { word?: string; words?: string[]; reasoning?: string };
+      // Saneo: primer token, solo letras (incluye acentos y ñ).
+      const word = (parsed.word ?? '').trim().split(/\s+/)[0].replace(/[^\p{L}]/gu, '');
+      lastBad = (parsed.word ?? '').trim();
+
+      if (!word || boardSet.has(normalize(word))) continue;
+
+      const words = (parsed.words ?? [])
+        .map(w => ownByNorm.get(normalize(w)))
+        .filter((w): w is string => !!w)
+        .slice(0, maxWords);
+      const count = Math.max(1, Math.min(maxWords, words.length || 1));
+      return { word, count, words, reasoning: parsed.reasoning ?? '' };
+    }
+    return null;
+  }
+
+  // ── Motor del equipo IA (§13.5) ──
+  // Cuando el turno es del equipo IA, el server lo juega solo: el jefe IA da una
+  // pista (reusa requestClue, sin gastar el cupo humano) y el agente IA adivina,
+  // todo a ritmo pausado y narrando para que los humanos lo lean.
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Titular corto (arriba) + línea opcional para la transcripción (abajo).
+  private setStage(headline: string, thinking: boolean, logLine?: string) {
+    this.aiActivity = { headline, thinking };
+    if (logLine) this.aiLog = this.aiLog ? `${this.aiLog}\n${logLine}` : logLine;
+    this.broadcastState();
+  }
+
+  // ¿El turno IA en curso sigue siendo válido? (no se reinició la partida, sigue
+  // siendo el turno del equipo IA en la fase esperada, y hay humanos mirando).
+  private aiStillValid(gen: number, phase: Phase): boolean {
+    return gen === this.aiGen
+      && this.aiTeam !== null
+      && this.turn === this.aiTeam
+      && this.phase === phase
+      && !this.noneConnected();
+  }
+
+  // Dispara el turno IA si corresponde (idempotente: no arranca dos veces).
+  private maybeRunAI() {
+    if (!this.aiTeam || this.aiRunning) return;
+    if (this.turn !== this.aiTeam) return;
+    if (this.phase !== 'awaitingClue' && this.phase !== 'guessing') return;
+    if (this.noneConnected()) return; // nadie mirando; se retoma al reconectar
+    void this.runAITurn();
+  }
+
+  private async runAITurn() {
+    if (this.aiRunning) return;
+    this.aiRunning = true;
+    const gen = this.aiGen;
+    try {
+      if (this.aiStillValid(gen, 'awaitingClue')) await this.aiGiveClue(gen);
+      if (this.aiStillValid(gen, 'guessing')) await this.aiGuess(gen);
+    } catch (err) {
+      console.error('AI turn failed', err);
+      // Nunca colgar la partida: si seguimos en el turno IA, pasarlo.
+      if (this.aiTeam && this.turn === this.aiTeam && (this.phase === 'awaitingClue' || this.phase === 'guessing')) {
+        this.passTurn();
+      }
+    } finally {
+      this.aiRunning = false;
+      if (gen === this.aiGen) {
+        this.aiActivity = null;
+        this.broadcastState();
+      }
+      this.maybeRunAI(); // por si el siguiente turno también es de la IA
+    }
+  }
+
+  private async aiGiveClue(gen: number) {
+    this.aiLog = ''; // arranca un turno IA nuevo: transcripción limpia
+    this.setStage('El jefe IA piensa una pista', true);
+    // El jefe IA puede conectar hasta tantas palabras como le queden vivas (máx 9).
+    const maxWords = Math.max(1, Math.min(9, this.unrevealedWords(this.aiTeam as Team).length));
+    // La pista y un tiempo mínimo de "pensar" corren en paralelo.
+    const [result] = await Promise.all([this.requestClue(this.aiTeam as Team, maxWords), this.delay(AI_CLUE_THINK_MS)]);
+    if (!this.aiStillValid(gen, 'awaitingClue')) return;
+
+    if (!result) {
+      this.setStage('Sin pista', false, '🤔 El jefe IA no encontró una pista clara — pasa el turno.');
+      await this.delay(AI_GUESS_AFTER_MS);
+      if (this.aiStillValid(gen, 'awaitingClue')) { this.passTurn(); this.broadcastState(); }
+      return;
+    }
+
+    this.clue = { word: result.word, count: result.count, team: this.aiTeam as Team, guessesUsed: 0 };
+    this.phase = 'guessing';
+    this.setStage(`Pista: «${result.word}» · ${result.count}`, false, `🔑 Pista: «${result.word}» · ${result.count}`);
+    await this.delay(AI_CLUE_READ_MS); // que los humanos lean la pista
+  }
+
+  private async aiGuess(gen: number) {
+    this.setStage('El agente IA lee la pista', true);
+    const [plan] = await Promise.all([this.requestGuesses(), this.delay(AI_GUESS_THINK_MS)]);
+    if (!this.aiStillValid(gen, 'guessing')) return;
+
+    if (!plan || plan.intentos.length === 0) {
+      this.setStage('No arriesga', false, '🤔 El agente IA no se anima a arriesgar — pasa el turno.');
+      await this.delay(AI_GUESS_AFTER_MS);
+      if (this.aiStillValid(gen, 'guessing')) { this.passTurn(); this.broadcastState(); }
+      return;
+    }
+
+    if (plan.analisis) {
+      this.setStage('Pensando…', false, `💭 ${plan.analisis}`);
+      await this.delay(AI_ANALYSIS_READ_MS);
+    }
+
+    for (const intento of plan.intentos) {
+      if (!this.aiStillValid(gen, 'guessing')) return;
+      const card = this.board.find(c => !c.revealed && normalize(c.word) === normalize(intento.palabra));
+      if (!card) continue; // la IA nombró algo que no está en el tablero
+
+      this.setStage(`Arriesga «${card.word}»`, false, `• «${card.word}» — ${intento.razon}`);
+      await this.delay(AI_GUESS_ANNOUNCE_MS);
+      if (!this.aiStillValid(gen, 'guessing')) return;
+
+      const wasOwn = card.color === this.aiTeam; // ¿era una carta del equipo IA?
+      card.revealed = true;
+      this.resolveGuess(card);
+      this.broadcastState();
+      await this.delay(AI_GUESS_AFTER_MS);
+
+      if (gen !== this.aiGen) return;
+      if (this.phase === 'finished') return;          // el banner de fin se encarga
+      if (this.turn !== this.aiTeam) {                 // el turno pasó al rival
+        if (wasOwn) this.setStage('Sin más intentos', false, '↪ Usó todos sus intentos — pasa el turno.');
+        else this.setStage('Se equivocó', false, '✗ Esa no era — pierde el turno.');
+        await this.delay(AI_GUESS_AFTER_MS);
+        return;
+      }
+      // Sigue siendo turno IA → acertó y le quedan intentos: continúa el loop.
+    }
+
+    // Si llegó hasta acá sin error, se planta y cierra el turno.
+    if (this.aiStillValid(gen, 'guessing')) {
+      this.setStage('Se planta', false, '✋ Se planta y termina el turno.');
+      await this.delay(AI_GUESS_AFTER_MS);
+      if (this.aiStillValid(gen, 'guessing')) { this.passTurn(); this.broadcastState(); }
+    }
+  }
+
+  // Prompt del agente que ADIVINA: recibe solo la pista y las palabras vivas SIN
+  // color (anti-trampa §9). Devuelve intentos ordenados por confianza con su
+  // razón. "Decente pero no perfecta": cauteloso, no arriesga de más.
+  private async requestGuesses(): Promise<{ analisis: string; intentos: { palabra: string; razon: string }[] } | null> {
+    const apiKey = this.room.env.ANTHROPIC_API_KEY as string | undefined;
+    if (!apiKey || !this.clue) return null;
+    const clue = this.clue; // capturar: el await de abajo invalida el narrowing
+
+    const unrevealed = this.board.filter(c => !c.revealed).map(c => c.word);
+    // Mezclar para que el orden de la lista no sesgue al modelo.
+    const shuffled = [...unrevealed].sort(() => Math.random() - 0.5);
+
+    const system =
+      'Sos un agente jugando Codenames en español. Tu jefe de espías te dio una ' +
+      'pista (una palabra y un número N). Tenés que adivinar las palabras de tu ' +
+      'equipo relacionadas con la pista, eligiéndolas SOLO de la lista del tablero.\n' +
+      'NO sabés de qué color es cada palabra: además de las tuyas hay palabras del ' +
+      'rival, neutrales y UN asesino que pierde la partida si lo tocás.\n' +
+      'Estrategia (sé decente pero NO perfecto, podés equivocarte como un humano):\n' +
+      '- Ordená tus intentos de MAYOR a menor confianza.\n' +
+      '- El número N indica cuántas palabras conecta la pista; podés intentar hasta ' +
+      'N (a lo sumo N+1 si estás muy seguro), pero NO te obligues a llegar a N.\n' +
+      '- Sé CAUTELOSO: si una palabra te cierra poco, no la arriesgues. Una sola ' +
+      'palabra equivocada termina tu turno y puede regalarle una carta al rival, o ' +
+      'peor, ser el asesino.\n' +
+      '- Elegí únicamente palabras que estén en la lista, tal cual aparecen.\n' +
+      'Devolvé un análisis breve (1-2 frases, como pensando en voz alta) y la lista ' +
+      'ordenada de intentos, cada uno con una razón corta de por qué lo elegís.';
+
+    const user =
+      `Pista: «${clue.word}» — número ${clue.count}.\n` +
+      `Palabras en el tablero (no reveladas): ${shuffled.join(', ')}.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: CLUE_MODEL,
+        max_tokens: 700,
+        system,
+        messages: [{ role: 'user', content: user }],
+        output_config: {
+          format: {
+            type: 'json_schema',
+            schema: {
+              type: 'object',
+              properties: {
+                analisis: { type: 'string', description: 'razonamiento breve sobre la pista (pensar en voz alta)' },
+                intentos: {
+                  type: 'array',
+                  description: 'palabras a arriesgar, ordenadas de mayor a menor confianza',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      palabra: { type: 'string', description: 'una palabra de la lista, tal cual aparece' },
+                      razon: { type: 'string', description: 'razón corta de por qué la elegís' },
+                    },
+                    required: ['palabra', 'razon'],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['analisis', 'intentos'],
+              additionalProperties: false,
+            },
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('Anthropic API error (guess)', res.status, await res.text());
+      return null;
+    }
+    const data = await res.json() as { content?: { type: string; text?: string }[] };
+    const text = data.content?.find(b => b.type === 'text')?.text;
+    if (!text) return null;
+
+    const parsed = JSON.parse(text) as { analisis?: string; intentos?: { palabra?: string; razon?: string }[] };
+    const intentos = (parsed.intentos ?? [])
+      .map(i => ({ palabra: (i.palabra ?? '').trim(), razon: (i.razon ?? '').trim() }))
+      .filter(i => i.palabra)
+      // No más de N+1 intentos (regla de Codenames).
+      .slice(0, clue.count + 1);
+    return { analisis: (parsed.analisis ?? '').trim(), intentos };
   }
 
   // Palabras todavía no reveladas de un color (para armar el prompt de la IA).
@@ -515,14 +809,16 @@ export default class Server implements Party.Server {
     ).length;
   }
 
-  // Primer participante conectado en orden de ingreso (para migrar el host).
+  // Primer participante humano conectado, en orden de ingreso (para migrar el
+  // host). Los jugadores IA nunca son host.
   private oldestConnectedId(): string | null {
-    for (const p of this.players.values()) if (p.connected) return p.id;
+    for (const p of this.players.values()) if (p.connected && !p.isAI) return p.id;
     return null;
   }
 
+  // ¿No queda ningún humano conectado? (Los IA no cuentan para mantener viva la sala.)
   private noneConnected(): boolean {
-    for (const p of this.players.values()) if (p.connected) return false;
+    for (const p of this.players.values()) if (p.connected && !p.isAI) return false;
     return true;
   }
 
@@ -551,6 +847,9 @@ export default class Server implements Party.Server {
       clue: this.clue,
       remaining: this.remaining,
       winner: this.winner,
+      aiTeam: this.aiTeam,
+      aiActivity: this.aiActivity,
+      aiLog: this.aiLog,
     };
   }
 
@@ -577,6 +876,7 @@ export default class Server implements Party.Server {
       clue: this.clue,
       remaining: this.remaining,
       winner: this.winner,
+      aiTeam: this.aiTeam,
     };
     void this.room.storage.put('snapshot', snap);
   }

@@ -69,6 +69,15 @@ export function Room({ playerId, room, name, creating, onLeave }: Props) {
     return () => clearTimeout(t);
   }, [error]);
 
+  // Modo equipo IA: repinta de verde todo lo que era azul (tablero, paneles,
+  // chip de turno, clave del jefe) vía un hook global en <html>.
+  const aiTeam = state?.aiTeam ?? null;
+  useEffect(() => {
+    if (aiTeam) document.documentElement.dataset.aiTeam = aiTeam;
+    else delete document.documentElement.dataset.aiTeam;
+    return () => { delete document.documentElement.dataset.aiTeam; };
+  }, [aiTeam]);
+
   const send = (msg: ClientMessage) => socket.send(JSON.stringify(msg));
 
   if (!state) {

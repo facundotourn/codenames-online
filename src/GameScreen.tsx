@@ -4,6 +4,7 @@ import { MAX_AI_CLUES, VIABILITY_GRACE_MS } from '../party/types';
 import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
+import { AiAnalysis } from './components/AiAnalysis';
 import { ThemeToggle } from './components/ThemeToggle';
 import { confettiSupported, fireVictoryConfetti } from './confetti';
 
@@ -37,6 +38,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
 
   const canGuess = !!me && (me.role === 'tableBoard' || (me.role === 'operative' && me.team === state.turn));
   const guessingNow = state.phase === 'guessing' && canGuess && !finished;
+  const isAiTurn = state.aiTeam !== null && state.turn === state.aiTeam;
   const myClueTurn = me?.role === 'spymaster' && me.team === state.turn && state.phase === 'awaitingClue';
   const aiCluesLeft = MAX_AI_CLUES - (me?.aiCluesUsed ?? 0);
 
@@ -186,17 +188,27 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
 
       {showWin && state.winner ? (
         <div className={`banner turn-${state.winner}`}>
-          🏆 ¡Ganó el equipo {teamLabel(state.winner)}!
+          🏆 ¡Ganó el equipo {state.winner === state.aiTeam ? 'IA 🤖' : teamLabel(state.winner)}!
           {assassinHit && ' — tocaron al asesino'}
         </div>
       ) : (
         <div className={`status-bar turn-${state.turn}`}>
-          <span className="turn-chip">Turno de {teamLabel(state.turn)}</span>
-          {state.phase === 'awaitingClue' && <span className="muted">esperando la pista del jefe…</span>}
+          <span className="turn-chip">Turno de {state.turn === state.aiTeam ? 'IA 🤖' : teamLabel(state.turn)}</span>
+          {state.phase === 'awaitingClue' && !isAiTurn && <span className="muted">esperando la pista del jefe…</span>}
           {state.phase === 'guessing' && state.clue && (
             <span className="clue">
               «{state.clue.word.toUpperCase()}» · {state.clue.count} · intentos: {guessesLeft}
             </span>
+          )}
+        </div>
+      )}
+
+      {state.aiActivity && (
+        <div className="ai-activity">
+          <span className="ai-activity-bot">🤖</span>
+          <span className="ai-activity-text">{state.aiActivity.headline}</span>
+          {state.aiActivity.thinking && (
+            <span className="ai-dots" aria-hidden="true"><i /><i /><i /></span>
           )}
         </div>
       )}
@@ -288,6 +300,8 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
         onRevealStart={onRevealStart}
         onRevealEnd={onRevealEnd}
       />
+
+      {state.aiTeam && state.aiLog && <AiAnalysis log={state.aiLog} />}
 
       <section className="actions">
         {guessingNow && <button onClick={() => send({ type: 'endTurn' })}>Terminar turno</button>}

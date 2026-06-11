@@ -7,6 +7,9 @@
   --accent-soft: rgba(109, 40, 217, 0.10);
   --accent-border: #d6c6f5;
   --green: #16a34a;
+  /* Equipo IA (repinta lo azul) */
+  --ai: #15b86b;
+  --ai-strong: #0f9457;
 
   --bg: #f2f4f8;
   --surface: #ffffff;
@@ -43,6 +46,8 @@
   --accent-soft: rgba(139, 92, 246, 0.16);
   --accent-border: #4a3f6b;
   --green: #22c55e;
+  --ai: #2bd17f;
+  --ai-strong: #34dc89;
 
   --bg: #0f1117;
   --surface: #1a1d27;
@@ -126,6 +131,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   .screen { animation: none; }
   .loader-cards .lc { animation: none; }
+  .team-flip { transition: none; }
 }
 
 h1 { font-size: 34px; letter-spacing: -0.01em; margin: 0 0 4px; }
@@ -260,16 +266,113 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* ── Lobby ── */
 .lobby-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
 .team-panel { background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
-.team-panel-head { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #fff; padding: 10px 14px; }
+.team-panel-head { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #fff; padding: 9px 14px; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .team-panel.red .team-panel-head { background: var(--red); }
 .team-panel.blue .team-panel-head { background: var(--blue); }
+.team-panel.ai .team-panel-head { background: var(--ai); }
+
+/* ── Equipo IA: el panel azul es un slot que flipea en 3D para revelar la IA ── */
+.team-slot { position: relative; perspective: 1400px; }
+.team-flip {
+  display: grid; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.62s cubic-bezier(0.4, 0.85, 0.3, 1);
+}
+.team-flip.flipped { transform: rotateY(180deg); }
+/* Ambas caras apiladas en la misma celda → el slot toma el alto de la más alta */
+.team-flip > .flip-face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.team-flip > .flip-back { transform: rotateY(180deg); }
+/* La cara frontal sigue azul aunque el modo IA repinte el azul global */
+.team-flip .flip-front { --blue: #3b82f6; }
+/* La cara oculta del flip no recibe clicks (evita activar botones invisibles) */
+.team-flip:not(.flipped) .flip-back { pointer-events: none; }
+.team-flip.flipped .flip-front { pointer-events: none; }
+
+/* Botón del host en la cabecera del equipo azul: activa/quita la IA (dispara el
+   flip). Vive sobre la banda de color, así no se desborda ni pelea con mobile. */
+.head-ai-btn {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0;
+  border: none; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.22); color: #fff;
+  font-size: 13px; line-height: 1; cursor: pointer;
+  transition: background 0.18s, transform 0.18s;
+}
+.head-ai-btn:hover { background: rgba(255, 255, 255, 0.36); transform: scale(1.07); }
+.head-ai-btn:active { transform: scale(0.93); }
+
+/* Chip de jugador IA (asiento bloqueado) */
+.member.ai { background: rgba(21, 184, 107, 0.10); box-shadow: inset 0 0 0 1.5px rgba(21, 184, 107, 0.35); }
+.member.ai .pname { color: var(--ai-strong); font-weight: 800; }
+.ai-avatar { font-size: 15px; flex-shrink: 0; }
+.mi-lock { font-size: 12px; opacity: 0.7; }
+
+/* ── Repintado global: con el equipo IA activo, todo lo azul pasa a verde ── */
+html[data-ai-team] { --blue: var(--ai); }
+html[data-ai-team] .status-bar.turn-blue { background: rgba(21, 184, 107, 0.10); border-color: rgba(21, 184, 107, 0.35); }
+html[data-ai-team][data-theme="dark"] .status-bar.turn-blue { background: rgba(21, 184, 107, 0.14); border-color: rgba(21, 184, 107, 0.45); }
+html[data-ai-team] .team-a .card-back,
+html[data-ai-team] .front-a .card-front {
+  background: linear-gradient(145deg, #34d18a 0%, #0f7a48 100%) !important;
+  box-shadow: 0 4px 16px rgba(15, 122, 72, 0.42) !important;
+}
+html[data-ai-team] .spy.team-a .card-front { border-color: rgba(21, 184, 107, 0.55); box-shadow: 0 0 0 2px rgba(21, 184, 107, 0.16), var(--card-shadow); }
+html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong); }
+
+/* Panel de narración en vivo del turno IA: el agente "piensa en voz alta" */
+.ai-activity {
+  display: flex; align-items: center; gap: 11px;
+  margin-top: 10px; padding: 12px 15px;
+  border: 2px solid rgba(21, 184, 107, 0.45);
+  border-radius: var(--radius);
+  background: rgba(21, 184, 107, 0.10);
+  animation: aiActivityIn 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+[data-theme="dark"] .ai-activity { background: rgba(21, 184, 107, 0.15); border-color: rgba(21, 184, 107, 0.5); }
+@keyframes aiActivityIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.ai-activity-bot { font-size: 22px; flex-shrink: 0; }
+/* Titular en UNA línea (estable, sin saltos de layout) */
+.ai-activity-text { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-dots { display: inline-flex; gap: 3px; flex-shrink: 0; vertical-align: middle; }
+.ai-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--ai-strong); animation: aiDot 1s ease-in-out infinite; }
+.ai-dots i:nth-child(2) { animation-delay: 0.16s; }
+.ai-dots i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes aiDot { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .ai-dots i { animation: none; } .ai-activity { animation: none; } }
+
+/* Razonamiento del agente IA: DEBAJO del tablero, colapsable. Su alto variable
+   no mueve el tablero (está abajo). Arranca oculto; el botón lo despliega. */
+.ai-analysis { margin-top: 14px; }
+.ai-analysis-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  padding: 8px 13px;
+}
+.ai-analysis-toggle:hover { color: var(--ai-strong); border-color: rgba(21, 184, 107, 0.45); }
+.ai-analysis-bot { font-size: 15px; }
+.ai-analysis-caret { color: var(--ai-strong); font-size: 12px; }
+.ai-analysis-box {
+  margin-top: 8px; padding: 13px 15px;
+  max-height: 190px; overflow-y: auto;
+  border: 2px solid rgba(21, 184, 107, 0.35);
+  border-radius: var(--radius);
+  background: rgba(21, 184, 107, 0.07);
+  font-size: 13.5px; line-height: 1.5; color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+[data-theme="dark"] .ai-analysis-box { background: rgba(21, 184, 107, 0.12); }
+.ai-caret-blink { color: var(--ai-strong); font-weight: 800; animation: aiCaret 1s step-end infinite; }
+@keyframes aiCaret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ai-caret-blink { animation: none; } }
 
 .role-group { padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 .role-group + .role-group { border-top: 1px solid var(--border); }
-/* Solo el último grupo (Agentes) se expande para ocupar el alto sobrante; su
-   botón de unirse queda al fondo y alinea con el del otro equipo. Jefe queda compacto. */
+/* El contenido (chips / botón de unirse) queda pegado al título, así las filas
+   alinean entre equipos (incluido el equipo IA). El alto sobrante va al fondo. */
 .role-group:last-child { flex: 1; }
-.role-group:last-child .join-slot { margin-top: auto; }
+/* Wrapper de "otros" vacío: no debe ocupar lugar ni sumar un gap extra. */
+.members-wrap:empty { display: none; }
 .role-group-title {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;

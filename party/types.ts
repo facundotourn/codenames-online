@@ -16,6 +16,7 @@ export interface Player {
   connected: boolean;
   ready: boolean;        // listo en el lobby; cambiar de rol lo resetea a false
   aiCluesUsed: number;   // sugerencias de IA pedidas en la partida actual (tope MAX_AI_CLUES)
+  isAI?: boolean;        // jugador sintético del equipo IA (sin conexión real)
 }
 
 export interface Card {
@@ -32,6 +33,13 @@ export interface Clue {
   guessesUsed: number;   // hasta N + 1
 }
 
+// Titular corto del turno IA (arriba del tablero), efímero. El razonamiento
+// largo va aparte en GameState.aiLog (transcripción, debajo del tablero).
+export interface AiActivity {
+  headline: string;      // estado corto: "Pensando", "Arriesga «X»", …
+  thinking: boolean;     // true → puntos animados; false → afirmación
+}
+
 export interface GameState {
   phase: Phase;
   hostId: string;        // anfitrión; único que inicia. Si se va, migra al más antiguo conectado
@@ -42,6 +50,9 @@ export interface GameState {
   clue: Clue | null;     // pista vigente durante 'guessing'
   remaining: { red: number; blue: number };
   winner: Team | null;
+  aiTeam: Team | null;   // equipo controlado por IA (solo 'blue'); null si no hay
+  aiActivity: AiActivity | null; // titular corto del turno IA (efímero, arriba)
+  aiLog: string;         // transcripción del razonamiento IA (debajo del tablero)
 }
 
 // ── Parámetros de configuración (ver §16) ──
@@ -59,6 +70,7 @@ export type ClientMessage =
   | { type: 'setName'; name: string }
   | { type: 'setRole'; role: Role; team: Team | null }
   | { type: 'setReady'; value: boolean }
+  | { type: 'setAITeam'; enabled: boolean }
   | { type: 'startGame' }
   | { type: 'giveClue'; word: string; count: number }
   | { type: 'guess'; cardId: string }
