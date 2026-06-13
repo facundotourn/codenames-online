@@ -718,6 +718,21 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 .spy.team-x .card-front .card-word { color: #f1f5f9; }
 .spy.team-n .card-front .card-word { color: var(--text); }
 
+/* Tema oscuro: en vista de jefe la bomba y las neutras quedaban muy parecidas
+   (ambas "carta oscura"). Bomba → casi negra con borde gris y palabra de alerta;
+   neutras → tinte beige cálido. Así contrastan claramente. */
+[data-theme="dark"] .spy.team-x .card-front {
+  background: linear-gradient(160deg, #16181f 0%, #000 100%);
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(120, 130, 145, 0.22), var(--card-shadow);
+}
+[data-theme="dark"] .spy.team-x .card-front .card-word { color: #fca5a5; }
+[data-theme="dark"] .spy.team-n .card-front {
+  background: linear-gradient(160deg, #3a3527 0%, #2b271e 100%);
+  border-color: #5c5340;
+}
+[data-theme="dark"] .spy.team-n .card-front .card-word { color: #e6d6b0; }
+
 /* ── Suspenso dramático ── */
 .dramatic { z-index: 50; animation: dramaticZoom 8s linear forwards; }
 @keyframes dramaticZoom { from { transform: scale(1); } to { transform: scale(1.45); } }
