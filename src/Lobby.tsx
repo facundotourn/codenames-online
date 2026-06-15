@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { Player, Role, Team } from '../party/types';
-import { startBlockReason, isTeamRole } from '../party/rules';
+import { startBlockReason, isTeamRole, draftTeams, teamLabel } from '../party/rules';
 import type { RoomViewProps } from './viewProps';
 import { ThemeToggle } from './components/ThemeToggle';
 import { AutoHeight } from './components/AutoHeight';
@@ -47,6 +48,17 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
   const aiOn = state.aiTeam === 'blue';
   const blockReason = startBlockReason(players);
   const hostName = state.players[state.hostId]?.name ?? '—';
+  // Equipos que arrancarían sin jefe (se sorteará uno entre sus agentes): al
+  // iniciar se le avisa al host y se le pide confirmar antes de mandar startGame.
+  const needsDraft = draftTeams(players);
+  const [confirmDraft, setConfirmDraft] = useState(false);
+
+  const onStartClick = () => {
+    if (needsDraft.length > 0) setConfirmDraft(true);
+    else send({ type: 'startGame' });
+  };
+  const confirmStart = () => { setConfirmDraft(false); send({ type: 'startGame' }); };
+  const draftTeamsText = needsDraft.map(teamLabel).join(' y ');
 
   const iAm = (role: Role, team: Team | null) => me?.role === role && (me?.team ?? null) === team;
   const setRole = (role: Role, team: Team | null) => send({ type: 'setRole', role, team });
@@ -210,10 +222,13 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       <section className="lobby-start">
         {isHost ? (
           <>
-            <button className="start-btn" disabled={blockReason !== null} onClick={() => send({ type: 'startGame' })}>
+            <button className="start-btn" disabled={blockReason !== null} onClick={onStartClick}>
               🚀 Iniciar partida
             </button>
             {blockReason && <p className="hint">⏳ {blockReason}</p>}
+            {!blockReason && needsDraft.length > 0 && (
+              <p className="hint">🎩 Se sorteará el jefe de {draftTeamsText} entre sus agentes.</p>
+            )}
           </>
         ) : (
           <p className="tag">
@@ -222,6 +237,23 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           </p>
         )}
       </section>
+
+      {confirmDraft && (
+        <div className="modal-backdrop" onClick={() => setConfirmDraft(false)}>
+          <div className="modal draft-modal" onClick={e => e.stopPropagation()}>
+            <h3>🎩 Sortear jefe de espías</h3>
+            <p>
+              {needsDraft.length > 1 ? 'Los equipos' : 'El equipo'} <strong>{draftTeamsText}</strong>{' '}
+              {needsDraft.length > 1 ? 'no tienen' : 'no tiene'} jefe de espías. Se elegirá uno al azar
+              entre sus agentes con una pequeña ruleta. ¿Iniciar igual?
+            </p>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setConfirmDraft(false)}>Cancelar</button>
+              <button className="start-btn" onClick={confirmStart}>🚀 Sortear e iniciar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="err toast">⚠ {error}</p>}
     </div>

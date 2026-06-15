@@ -4,6 +4,7 @@ import type { GameState, ClientMessage, ServerMessage } from '../party/types';
 import type { ClueSuggestion } from './viewProps';
 import { Lobby } from './Lobby';
 import { GameScreen } from './GameScreen';
+import { SpymasterDraft } from './components/SpymasterDraft';
 
 // En dev, el server PartyKit corre aparte en :1999; en producción el front lo
 // sirve el mismo deploy, así que conectamos al host actual. Se puede forzar con
@@ -91,7 +92,8 @@ export function Room({ playerId, room, name, creating, onLeave }: Props) {
     onClearSuggestion: () => setSuggestion(null),
   };
 
-  return state.phase === 'lobby'
-    ? <Lobby {...shared} />
-    : <GameScreen {...shared} />;
+  if (state.phase === 'lobby') return <Lobby {...shared} />;
+  if (state.phase === 'drafting' && state.draft)
+    return <SpymasterDraft draft={state.draft} players={state.players} />;
+  return <GameScreen {...shared} />;
 }
