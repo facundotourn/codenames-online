@@ -27,10 +27,14 @@ export function startBlockReason(players: Player[]): string | null {
 
   for (const team of ['red', 'blue'] as Team[]) {
     const members = teamPlayers.filter(p => p.team === team);
+    const operatives = members.filter(p => p.role === 'operative');
     if (!members.some(p => p.role === 'spymaster')) {
-      return `El equipo ${teamLabel(team)} necesita un jefe de espías.`;
+      // Sin jefe se puede iniciar igual si hay ≥2 agentes: el server sortea a uno
+      // como jefe (quedando ≥1 agente que adivine). Con menos, falta jefe.
+      if (operatives.length >= 2) continue;
+      return `El equipo ${teamLabel(team)} necesita un jefe de espías (o 2+ agentes para sortear uno).`;
     }
-    const canGuess = members.some(p => p.role === 'operative') || hasTable;
+    const canGuess = operatives.length > 0 || hasTable;
     if (!canGuess) {
       return `El equipo ${teamLabel(team)} necesita un agente (o una mesa compartida en la sala).`;
     }
@@ -40,6 +44,22 @@ export function startBlockReason(players: Player[]): string | null {
     return 'Faltan jugadores por marcarse listos.';
   }
   return null;
+}
+
+// Equipos que arrancan SIN jefe de espías pero con ≥2 agentes: el server
+// sorteará uno como jefe. Lo usan el server (para hacerlo) y el lobby (para
+// avisarle al host antes de iniciar). Solo cuenta a los conectados.
+export function draftTeams(players: Player[]): Team[] {
+  const connected = players.filter(p => p.connected);
+  const teamPlayers = connected.filter(p => isTeamRole(p.role));
+  const out: Team[] = [];
+  for (const team of ['red', 'blue'] as Team[]) {
+    const members = teamPlayers.filter(p => p.team === team);
+    const hasSpy = members.some(p => p.role === 'spymaster');
+    const operatives = members.filter(p => p.role === 'operative');
+    if (!hasSpy && operatives.length >= 2) out.push(team);
+  }
+  return out;
 }
 
 // ¿La partida en curso sigue siendo jugable? (§16) Solo cuentan los conectados:

@@ -6,7 +6,7 @@ export type CardColor = 'red' | 'blue' | 'neutral' | 'assassin';
 
 // Roles de equipo (requieren team) + roles neutrales (sin team).
 export type Role = 'spymaster' | 'operative' | 'tableBoard' | 'spectator';
-export type Phase = 'lobby' | 'awaitingClue' | 'guessing' | 'finished';
+export type Phase = 'lobby' | 'drafting' | 'awaitingClue' | 'guessing' | 'finished';
 
 export interface Player {
   id: string;            // persistente, guardado en localStorage
@@ -40,6 +40,18 @@ export interface AiActivity {
   thinking: boolean;     // true → puntos animados; false → afirmación
 }
 
+// Sorteo de jefe de espías: cuando un equipo arranca sin jefe pero con ≥2
+// agentes, el server promueve a uno al azar. El detalle viaja a todos los
+// clientes para que animen la MISMA "ruleta" y aterricen en el mismo elegido.
+export interface DraftPick {
+  team: Team;
+  candidateIds: string[]; // agentes en juego al momento del sorteo (orden estable)
+  chosenId: string;       // el promovido a jefe
+}
+export interface Draft {
+  picks: DraftPick[];     // un sorteo por equipo que arrancó sin jefe
+}
+
 export interface GameState {
   phase: Phase;
   hostId: string;        // anfitrión; único que inicia. Si se va, migra al más antiguo conectado
@@ -53,6 +65,7 @@ export interface GameState {
   aiTeam: Team | null;   // equipo controlado por IA (solo 'blue'); null si no hay
   aiActivity: AiActivity | null; // titular corto del turno IA (efímero, arriba)
   aiLog: string;         // transcripción del razonamiento IA (debajo del tablero)
+  draft: Draft | null;   // sorteo de jefe en curso (fase 'drafting'); null si no
 }
 
 // ── Parámetros de configuración (ver §16) ──
@@ -62,6 +75,9 @@ export const MAX_AI_CLUES = 2;
 // Gracia antes de abortar una partida inviable (§16). Compartida server/cliente
 // para que la cuenta regresiva del aviso coincida con el timer real del server.
 export const VIABILITY_GRACE_MS = 20 * 1000;
+// Duración del sorteo del jefe de espías (ruleta sobre los agentes). Compartida
+// para que la animación del cliente y el timer del server coincidan.
+export const DRAFT_MS = 4800;
 
 // ── Protocolo de mensajes ──
 

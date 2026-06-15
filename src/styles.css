@@ -134,6 +134,74 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; }
   .team-flip { transition: none; }
 }
 
+/* ── Sorteo de jefe de espías (ruleta sincronizada, fase 'drafting') ── */
+.draft-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 22px; min-height: 60vh; text-align: center;
+}
+.draft-heading { margin: 0; font-size: 24px; }
+.draft-panels { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; width: 100%; }
+.draft-panel {
+  --accent-team: var(--red);
+  flex: 1 1 240px; max-width: 340px;
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 18px 16px; box-shadow: var(--shadow-md);
+}
+.draft-panel.team-a { --accent-team: var(--blue); }
+html[data-ai-team] .draft-panel.team-a { --accent-team: var(--ai); }
+.draft-team { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.draft-team strong { color: var(--accent-team); }
+.draft-names { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.draft-name {
+  font-family: var(--font-display); font-weight: 700; font-size: 17px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--muted); border: 2px solid transparent;
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.draft-name.on {
+  background: var(--accent-team); color: #fff; transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.draft-panel.done .draft-name { opacity: 0.4; }
+.draft-panel.done .draft-name.winner {
+  opacity: 1; background: var(--accent-team); color: #fff; transform: scale(1.1);
+  animation: draftWin 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes draftWin {
+  0% { transform: scale(1.06); } 60% { transform: scale(1.2); } 100% { transform: scale(1.1); }
+}
+.draft-result { margin: 14px 0 0; min-height: 22px; font-size: 16px; color: var(--muted); }
+.draft-result.show { color: var(--text); font-weight: 700; }
+.draft-result strong { color: var(--accent-team); }
+.draft-sub { color: var(--muted); font-size: 13px; max-width: 360px; margin: 0; }
+
+/* ── Modal genérico (confirmación) ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100; padding: 20px;
+  background: rgba(10, 14, 24, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.18s ease;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px; max-width: 380px; width: 100%;
+  box-shadow: var(--shadow-md); animation: modalPop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.modal h3 { margin: 0 0 10px; font-size: 19px; }
+.modal p { margin: 0 0 18px; color: var(--text); line-height: 1.5; }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .start-btn { flex: 1; width: auto; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-name, .draft-panel.done .draft-name.winner { transition: none; animation: none; }
+  .modal, .modal-backdrop { animation: none; }
+}
+
 h1 { font-size: 34px; letter-spacing: -0.01em; margin: 0 0 4px; }
 h1 .r { color: var(--red); }
 h1 .b { color: var(--blue); }

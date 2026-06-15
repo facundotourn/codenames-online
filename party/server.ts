@@ -1,9 +1,9 @@
 import type * as Party from 'partykit/server';
 import type {
-  GameState, Player, Phase, Card, Team, Clue, Role, AiActivity,
+  GameState, Player, Phase, Card, Team, Clue, Role, AiActivity, Draft, DraftPick,
   ClientMessage, ServerMessage,
 } from './types';
-import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS } from './types';
+import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS, DRAFT_MS } from './types';
 import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
 import { generateBoard } from './game';
 
@@ -64,6 +64,10 @@ export default class Server implements Party.Server {
   private winner: Team | null = null;
   private aiTeam: Team | null = null;
 
+  // Sorteo de jefe de espías en curso (fase 'drafting'). Efímero: no se persiste
+  // (la promoción del agente sí queda en players). Ver startGame/draftSpymasters.
+  private draft: Draft | null = null;
+
   // Motor del equipo IA: narración efímera + flag de turno en curso + un
   // "generation" que invalida un turno IA en vuelo si la partida se reinicia.
   private aiActivity: AiActivity | null = null;
@@ -98,6 +102,10 @@ export default class Server implements Party.Server {
     this.remaining = snap.remaining;
     this.winner = snap.winner;
     this.aiTeam = snap.aiTeam ?? null;
+    // El sorteo es efímero y su timer no sobrevive al reinicio del DO: si quedó
+    // a mitad, los agentes ya fueron promovidos en players, así que se pasa
+    // directo a esperar la pista (sin re-animar la ruleta).
+    if (this.phase === 'drafting') this.phase = 'awaitingClue';
     // Si quedó gente pero nadie se reconecta, la sala se limpia sola.
     if (this.players.size > 0) await this.room.storage.setAlarm(Date.now() + ABANDON_MS);
   }
@@ -320,11 +328,15 @@ export default class Server implements Party.Server {
   // ── Transiciones ──
 
   private startGame() {
-    this.aiGen++; // invalida cualquier turno IA en vuelo
+    this.aiGen++; // invalida cualquier turno IA (y un sorteo) en vuelo
     this.aiActivity = null;
     this.aiLog = '';
+    // Equipos sin jefe pero con ≥2 agentes: se promueve a uno al azar y se entra
+    // a la fase de sorteo ('drafting') para que todos vean la ruleta antes de
+    // arrancar. Sin sorteos pendientes, se va directo a esperar la pista.
+    this.draft = this.draftSpymasters();
     const { board, startingTeam, remaining } = generateBoard();
-    this.phase = 'awaitingClue';
+    this.phase = this.draft ? 'drafting' : 'awaitingClue';
     this.board = board;
     this.startingTeam = startingTeam;
     this.turn = startingTeam;
@@ -333,12 +345,46 @@ export default class Server implements Party.Server {
     this.winner = null;
     // Cada jefe arranca con sus sugerencias de IA disponibles (§13).
     for (const p of this.players.values()) p.aiCluesUsed = 0;
+    if (this.draft) this.scheduleDraftFinish();
+  }
+
+  // Promueve un agente al azar a jefe en cada equipo conectado que arrancó sin
+  // jefe pero con ≥2 agentes (ver draftTeams en rules.ts). Devuelve el detalle
+  // del sorteo para animarlo, o null si no hubo ninguno.
+  private draftSpymasters(): Draft | null {
+    const picks: DraftPick[] = [];
+    for (const team of ['red', 'blue'] as Team[]) {
+      const members = [...this.players.values()].filter(
+        p => p.connected && isTeamRole(p.role) && p.team === team);
+      if (members.some(p => p.role === 'spymaster')) continue;
+      const operatives = members.filter(p => p.role === 'operative');
+      if (operatives.length < 2) continue;
+      const chosen = operatives[Math.floor(Math.random() * operatives.length)];
+      chosen.role = 'spymaster';
+      picks.push({ team, candidateIds: operatives.map(p => p.id), chosenId: chosen.id });
+    }
+    return picks.length ? { picks } : null;
+  }
+
+  // Tras DRAFT_MS (lo que dura la ruleta en el cliente), cierra el sorteo y
+  // arranca la partida. El generation (aiGen) cancela si se reinició/volvió al
+  // lobby mientras tanto. El timer vive mientras el DO siga vivo.
+  private scheduleDraftFinish() {
+    const gen = this.aiGen;
+    setTimeout(() => {
+      if (this.aiGen !== gen || this.phase !== 'drafting') return;
+      this.draft = null;
+      this.phase = 'awaitingClue';
+      this.broadcastState();
+      this.maybeRunAI();
+    }, DRAFT_MS);
   }
 
   private resetToLobby() {
-    this.aiGen++; // invalida cualquier turno IA en vuelo
+    this.aiGen++; // invalida cualquier turno IA (y un sorteo) en vuelo
     this.aiActivity = null;
     this.aiLog = '';
+    this.draft = null;
     if (this.viabilityTimer) { clearTimeout(this.viabilityTimer); this.viabilityTimer = null; }
     // En el lobby no se preservan asientos: se descartan los desconectados para no
     // dejar fantasmas que bloqueen el inicio (no estarán "ready" nunca).
@@ -850,6 +896,7 @@ export default class Server implements Party.Server {
       aiTeam: this.aiTeam,
       aiActivity: this.aiActivity,
       aiLog: this.aiLog,
+      draft: this.draft,
     };
   }
 
