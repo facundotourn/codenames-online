@@ -68,6 +68,10 @@ export default class Server implements Party.Server {
   // (la promoción del agente sí queda en players). Ver startGame/draftSpymasters.
   private draft: Draft | null = null;
 
+  // Cartas reveladas en el turno actual (para el evento de analytics 'turn_ended':
+  // qué palabras sacó el equipo con la pista vigente). Se vacía con cada pista.
+  private turnReveals: { word: string; color: Card['color'] }[] = [];
+
   // Motor del equipo IA: narración efímera + flag de turno en curso + un
   // "generation" que invalida un turno IA en vuelo si la partida se reinicia.
   private aiActivity: AiActivity | null = null;
@@ -239,6 +243,7 @@ export default class Server implements Party.Server {
         }
         this.clue = { word, count, team: this.turn, guessesUsed: 0 };
         this.phase = 'guessing';
+        this.turnReveals = [];
         break;
       }
 
@@ -346,6 +351,13 @@ export default class Server implements Party.Server {
     // Cada jefe arranca con sus sugerencias de IA disponibles (§13).
     for (const p of this.players.values()) p.aiCluesUsed = 0;
     if (this.draft) this.scheduleDraftFinish();
+    this.turnReveals = [];
+    void this.sendGAEvent('game_started', {
+      starting_team: startingTeam,
+      vs_ai: this.aiTeam ? 1 : 0,
+      players: [...this.players.values()].filter(p => p.connected && !p.isAI && isTeamRole(p.role)).length,
+      drafted: this.draft ? 1 : 0,
+    });
   }
 
   // Promueve un agente al azar a jefe en cada equipo conectado que arrancó sin
@@ -658,6 +670,7 @@ export default class Server implements Party.Server {
 
     this.clue = { word: result.word, count: result.count, team: this.aiTeam as Team, guessesUsed: 0 };
     this.phase = 'guessing';
+    this.turnReveals = [];
     this.setStage(`Pista: «${result.word}» · ${result.count}`, false, `🔑 Pista: «${result.word}» · ${result.count}`);
     await this.delay(AI_CLUE_READ_MS); // que los humanos lean la pista
   }
@@ -816,8 +829,10 @@ export default class Server implements Party.Server {
   private resolveGuess(card: Card) {
     const turn = this.turn;
     const other: Team = turn === 'red' ? 'blue' : 'red';
+    this.turnReveals.push({ word: card.word, color: card.color });
 
     if (card.color === 'assassin') {
+      this.logTurnEnded('assassin');
       this.phase = 'finished';
       this.winner = other;
       return;
@@ -825,6 +840,7 @@ export default class Server implements Party.Server {
     if (card.color === 'red' || card.color === 'blue') {
       this.remaining[card.color]--;
       if (this.remaining[card.color] === 0) {
+        this.logTurnEnded(card.color === turn ? 'win' : 'win_opponent');
         this.phase = 'finished';
         this.winner = card.color;
         return;
@@ -832,19 +848,76 @@ export default class Server implements Party.Server {
       if (card.color === turn) {
         if (this.clue) {
           this.clue.guessesUsed++;
-          if (this.clue.guessesUsed >= this.clue.count + 1) this.passTurn();
+          if (this.clue.guessesUsed >= this.clue.count + 1) this.passTurn('exhausted');
         }
         return;
       }
     }
     // neutral o carta del rival
-    this.passTurn();
+    this.passTurn(card.color === 'neutral' ? 'neutral' : 'opponent_card');
   }
 
-  private passTurn() {
+  private passTurn(reason = 'end_turn') {
+    this.logTurnEnded(reason);
     this.turn = this.turn === 'red' ? 'blue' : 'red';
     this.clue = null;
     this.phase = 'awaitingClue';
+  }
+
+  // Analytics del turno que termina: la pista y qué palabras sacó el equipo, para
+  // poder rankear "mejores pistas" más adelante. Lee la pista vigente (todavía no
+  // se limpió) y el acumulado de reveladas. Sin pista no hay nada que registrar.
+  private logTurnEnded(reason: string) {
+    const clue = this.clue;
+    if (!clue) return;
+    const team = clue.team;
+    const reveals = this.turnReveals;
+    const correct = reveals.filter(r => r.color === team).length;
+    const wrong = reveals.filter(r => (r.color === 'red' || r.color === 'blue') && r.color !== team).length;
+    const neutral = reveals.filter(r => r.color === 'neutral').length;
+    const assassin = reveals.some(r => r.color === 'assassin') ? 1 : 0;
+    void this.sendGAEvent('turn_ended', {
+      team,
+      is_ai: this.aiTeam === team ? 1 : 0,
+      clue_word: clue.word,
+      clue_count: clue.count,
+      guesses: reveals.length,
+      correct,
+      wrong,
+      neutral,
+      assassin,
+      won: this.winner === team ? 1 : 0,
+      reason,
+      // "palabra:color" separadas por coma (GA trunca el texto a 100 chars).
+      words: reveals.map(r => `${r.word}:${r.color ?? '?'}`).join(','),
+    });
+    this.turnReveals = [];
+  }
+
+  // Envía un evento a GA4 vía Measurement Protocol (el server es el único con la
+  // verdad completa de la partida). No-op si faltan las credenciales (dev/local).
+  // client_id estable por sala para que GA agrupe los eventos de una misma sala.
+  private async sendGAEvent(name: string, params: Record<string, unknown>) {
+    const id = this.room.env.GA_MEASUREMENT_ID as string | undefined;
+    const secret = this.room.env.GA_API_SECRET as string | undefined;
+    if (!id || !secret) return;
+    try {
+      await fetch(
+        `https://www.google-analytics.com/mp/collect?measurement_id=${id}&api_secret=${secret}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            client_id: this.room.id,
+            // engagement_time_msec ayuda a que GA4 atribuya el evento a una sesión
+            // y lo muestre en los reportes estándar.
+            events: [{ name, params: { ...params, room: this.room.id, engagement_time_msec: 1 } }],
+          }),
+        },
+      );
+    } catch (e) {
+      console.error('GA event failed', name, e);
+    }
   }
 
   // ── Helpers ──

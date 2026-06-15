@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Room } from './Room';
 import { ThemeToggle } from './components/ThemeToggle';
+import { track } from './analytics';
 
 // Identidad por pestaña, persistida en sessionStorage: una recarga (F5) reconecta
 // al mismo asiento (§14). Como al DUPLICAR una pestaña el navegador copia el
@@ -97,10 +98,13 @@ export default function App() {
     setJoined(null);
   };
 
-  const createRoom = () => enter(generateRoomCode(), true);
+  const createRoom = () => {
+    track('room_created');
+    enter(generateRoomCode(), true);
+  };
   const joinRoom = () => {
     const room = codeInput.trim().toUpperCase();
-    if (room) enter(room, false);
+    if (room) { track('room_joined'); enter(room, false); }
   };
 
   if (joined) {
