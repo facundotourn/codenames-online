@@ -5,8 +5,10 @@ import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
 import { AiAnalysis } from './components/AiAnalysis';
-import { getTheme, toggleTheme, type Theme } from './theme';
-import { GearIcon, MoonIcon, TrophyIcon, RobotIcon, BulbIcon, WarnIcon, HourglassIcon } from './components/icons';
+import { SettingsMenu } from './components/SettingsMenu';
+import { HelpButton } from './components/RulesHelp';
+import { gameSteps, generalSteps } from './help';
+import { TrophyIcon, RobotIcon, BulbIcon, WarnIcon, HourglassIcon } from './components/icons';
 import { confettiSupported, fireVictoryConfetti } from './confetti';
 
 const lsBool = (key: string, def: boolean) => {
@@ -18,16 +20,13 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
   const [clueWord, setClueWord] = useState('');
   const [clueCount, setClueCount] = useState(1);
   const [askingAI, setAskingAI] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [dramatic, setDramatic] = useState(() => lsBool('opt.dramatic', false));
   const [confettiOn, setConfettiOn] = useState(() => lsBool('opt.confetti', true));
-  const [theme, setTheme] = useState<Theme>(getTheme);
 
   // Cartas con su flip de reveal en curso: mientras haya alguna, diferimos el
   // anuncio de victoria (banner + confeti) para no spoilear el suspenso.
   const [pending, setPending] = useState<Set<string>>(() => new Set());
 
-  const menuRef = useRef<HTMLDivElement>(null);
   const prevBoard = useRef<Map<string, Card>>(new Map());
   const prevRemaining = useRef(state.remaining);
   const confettiFired = useRef(false);
@@ -101,16 +100,6 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
     }
   }, [showWin, state.winner, confettiOn]);
 
-  // Cerrar el menú de ajustes al hacer clic afuera.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [menuOpen]);
-
   const toggleDramatic = (v: boolean) => { setDramatic(v); localStorage.setItem('opt.dramatic', v ? '1' : '0'); };
   const toggleConfetti = (v: boolean) => { setConfettiOn(v); localStorage.setItem('opt.confetti', v ? '1' : '0'); };
 
@@ -143,6 +132,9 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
     onClearSuggestion();
   };
 
+  // Ayuda específica del rol del jugador (con los nombres del resto).
+  const helpSteps = me ? gameSteps(me, state) : generalSteps;
+
   return (
     <div className={`screen${isTV ? ' tv' : ''}`}>
       <header className="room-head">
@@ -157,44 +149,23 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           </p>
         </div>
         <div className="head-actions">
-          <div className="settings-wrapper" ref={menuRef}>
-            <button
-              className={`settings-btn${menuOpen ? ' active' : ''}`}
-              onClick={() => setMenuOpen(o => !o)}
-              aria-label="Opciones"
-            >
-              <GearIcon size={18} />
-            </button>
-            {menuOpen && (
-              <div className="settings-dropdown">
-                <div className="settings-row">
-                  <span className="settings-label"><MoonIcon size={15} className="settings-ico" /> Tema oscuro</span>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={theme === 'dark'}
-                      onChange={() => setTheme(toggleTheme())}
-                    />
-                    <span className="slider" />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <span className="settings-label">Suspenso final <span className="beta-badge">beta</span></span>
-                  <label className="switch">
-                    <input type="checkbox" checked={dramatic} onChange={e => toggleDramatic(e.target.checked)} />
-                    <span className="slider" />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <span>Confeti de victoria</span>
-                  <label className="switch">
-                    <input type="checkbox" checked={confettiOn} onChange={e => toggleConfetti(e.target.checked)} />
-                    <span className="slider" />
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
+          <HelpButton steps={helpSteps} />
+          <SettingsMenu>
+            <div className="settings-row">
+              <span className="settings-label">Suspenso final <span className="beta-badge">beta</span></span>
+              <label className="switch">
+                <input type="checkbox" checked={dramatic} onChange={e => toggleDramatic(e.target.checked)} />
+                <span className="slider" />
+              </label>
+            </div>
+            <div className="settings-row">
+              <span>Confeti de victoria</span>
+              <label className="switch">
+                <input type="checkbox" checked={confettiOn} onChange={e => toggleConfetti(e.target.checked)} />
+                <span className="slider" />
+              </label>
+            </div>
+          </SettingsMenu>
         </div>
       </header>
 

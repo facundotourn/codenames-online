@@ -11,8 +11,7 @@ export function applyTheme(t: Theme) {
 }
 
 // Alterna el tema y devuelve el nuevo. Habilita la transición de colores solo
-// durante el cambio (no en la carga). Lo usan el ThemeToggle y el menú de
-// ajustes en partida.
+// durante el cambio (no en la carga). Lo usa el menú de ajustes (SettingsMenu).
 export function toggleTheme(): Theme {
   const next: Theme = getTheme() === 'dark' ? 'light' : 'dark';
   const root = document.documentElement;

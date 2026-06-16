@@ -173,3 +173,20 @@ export const DotIcon = (p: IconProps) => (
     <circle cx="12" cy="12" r="6" fill="currentColor" stroke="none" />
   </IconSvg>
 );
+
+// Ayuda (signo de pregunta en círculo).
+export const HelpIcon = (p: IconProps) => (
+  <IconSvg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.4-2.7 2.4" />
+    <path d="M12 16.8h.01" />
+  </IconSvg>
+);
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <IconSvg {...p}><path d="M15 6l-6 6 6 6" /></IconSvg>
+);
+
+export const ChevronRightIcon = (p: IconProps) => (
+  <IconSvg {...p}><path d="M9 6l6 6-6 6" /></IconSvg>
+);

@@ -197,6 +197,35 @@ html[data-ai-team] .draft-panel.team-a { --accent-team: var(--ai); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ── Modal de reglas / ayuda (steps) ── */
+.rules-modal { position: relative; max-width: 430px; }
+.rules-close {
+  position: absolute; top: 12px; right: 12px;
+  display: inline-flex; padding: 5px; line-height: 0; border-radius: 8px;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+}
+.rules-close:hover { color: var(--text); background: var(--surface-2); }
+.rules-step { min-height: 172px; animation: fadeIn 0.22s ease; }
+.rules-step h3 { margin: 2px 34px 12px 0; font-size: 19px; }
+.rules-body { color: var(--text); font-size: 14.5px; line-height: 1.55; }
+.rules-body p { margin: 0; }
+.rules-body strong { font-weight: 800; }
+.rules-nav { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+.rules-arrow {
+  display: inline-flex; padding: 8px; line-height: 0; flex-shrink: 0; cursor: pointer;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.rules-arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.rules-arrow:disabled { opacity: 0.35; cursor: default; }
+.rules-dots { display: flex; gap: 7px; flex: 1; justify-content: center; }
+.rules-dot {
+  width: 8px; height: 8px; padding: 0; border: none; border-radius: 50%;
+  background: var(--border); cursor: pointer; transition: background 0.2s, transform 0.2s;
+}
+.rules-dot.on { background: var(--accent); transform: scale(1.25); }
+.rules-done { flex-shrink: 0; padding: 9px 18px; }
+
 @media (prefers-reduced-motion: reduce) {
   .draft-name, .draft-panel.done .draft-name.winner { transition: none; animation: none; }
   .modal, .modal-backdrop { animation: none; }
@@ -636,7 +665,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 /* ── Settings gear menu ── */
 .head-actions { display: flex; align-items: center; gap: 8px; }
 .settings-wrapper { position: relative; }
-.settings-btn {
+.settings-btn, .help-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -647,7 +676,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
   border-radius: 10px;
   line-height: 0;
 }
-.settings-btn:hover, .settings-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.settings-btn:hover, .settings-btn.active, .help-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .settings-ico { color: var(--muted); }
 
 /* Íconos SVG inline dentro de texto (banner, chips, avisos): alinear con la línea. */

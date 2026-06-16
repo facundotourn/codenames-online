@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Room } from './Room';
-import { ThemeToggle } from './components/ThemeToggle';
+import { SettingsMenu } from './components/SettingsMenu';
+import { HelpButton } from './components/RulesHelp';
+import { generalSteps } from './help';
 import { SpyIcon, SparkleIcon, KeyIcon } from './components/icons';
 import { track } from './analytics';
 
@@ -122,7 +124,7 @@ export default function App() {
 
   return (
     <div className="screen welcome">
-      <div className="screen-top"><ThemeToggle /></div>
+      <div className="screen-top"><HelpButton steps={generalSteps} /><SettingsMenu /></div>
       <div className="hero">
         <div className="hero-logo"><SpyIcon size={46} /></div>
         <h1><span className="r">Code</span><span className="b">names</span> <span className="hero-on">Online</span></h1>
