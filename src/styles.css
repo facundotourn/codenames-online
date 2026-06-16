@@ -205,9 +205,15 @@ html[data-ai-team] .draft-panel.team-a { --accent-team: var(--ai); }
   background: none; border: none; color: var(--muted); cursor: pointer;
 }
 .rules-close:hover { color: var(--text); background: var(--surface-2); }
-.rules-step { min-height: 172px; animation: fadeIn 0.22s ease; }
+.rules-step { min-height: 172px; overflow: hidden; }
 .rules-step h3 { margin: 2px 34px 12px 0; font-size: 19px; }
+/* Título: fade. Body: entra deslizándose según la dirección de navegación. */
+.rules-title { animation: fadeIn 0.26s ease; }
 .rules-body { color: var(--text); font-size: 14.5px; line-height: 1.55; }
+.rules-body.slide-next { animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.rules-body.slide-prev { animation: slideInLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
 .rules-body p { margin: 0; }
 .rules-body strong { font-weight: 800; }
 .rules-nav { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
@@ -225,10 +231,8 @@ html[data-ai-team] .draft-panel.team-a { --accent-team: var(--ai); }
 }
 .rules-dot.on { background: var(--accent); transform: scale(1.25); }
 .rules-done { flex-shrink: 0; padding: 9px 18px; }
-/* Hint de swipe: solo en dispositivos táctiles */
-.rules-swipe-hint { display: none; }
-@media (pointer: coarse) {
-  .rules-swipe-hint { display: block; text-align: center; font-size: 11px; color: var(--muted); margin: 12px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .rules-title, .rules-body.slide-next, .rules-body.slide-prev { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

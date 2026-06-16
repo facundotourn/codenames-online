@@ -19,11 +19,20 @@ export function HelpButton({ steps }: { steps: HelpStep[] }) {
 
 function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void }) {
   const [i, setI] = useState(0);
+  // Dirección del último cambio (1 = avanzar, -1 = retroceder), para animar el
+  // body deslizándose hacia el lado correcto.
+  const [dir, setDir] = useState<1 | -1>(1);
   const step = steps[i];
   const last = i === steps.length - 1;
 
-  const prev = () => setI(n => Math.max(0, n - 1));
-  const next = () => setI(n => Math.min(steps.length - 1, n + 1));
+  const go = (target: number) => {
+    const t = Math.max(0, Math.min(steps.length - 1, target));
+    if (t === i) return;
+    setDir(t > i ? 1 : -1);
+    setI(t);
+  };
+  const prev = () => go(i - 1);
+  const next = () => go(i + 1);
 
   // Swipe táctil (mobile): deslizar a la izquierda avanza, a la derecha retrocede.
   const touchStartX = useRef<number | null>(null);
@@ -47,8 +56,8 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
         <button className="rules-close" onClick={onClose} aria-label="Cerrar"><CloseIcon size={18} /></button>
 
         <div className="rules-step" key={i}>
-          <h3>{step.title}</h3>
-          <div className="rules-body">{step.body}</div>
+          <h3 className="rules-title">{step.title}</h3>
+          <div className={`rules-body ${dir === 1 ? 'slide-next' : 'slide-prev'}`}>{step.body}</div>
         </div>
 
         <div className="rules-nav">
@@ -61,7 +70,7 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
               <button
                 key={n}
                 className={`rules-dot${n === i ? ' on' : ''}`}
-                onClick={() => setI(n)}
+                onClick={() => go(n)}
                 aria-label={`Paso ${n + 1}`}
               />
             ))}
@@ -75,8 +84,6 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
             </button>
           )}
         </div>
-
-        <p className="rules-swipe-hint">Deslizá para cambiar de paso</p>
       </div>
     </div>
   );
