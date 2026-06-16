@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { HelpIcon, CloseIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
 
 export type HelpStep = { title: string; body: ReactNode };
@@ -22,9 +22,28 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
   const step = steps[i];
   const last = i === steps.length - 1;
 
+  const prev = () => setI(n => Math.max(0, n - 1));
+  const next = () => setI(n => Math.min(steps.length - 1, n + 1));
+
+  // Swipe táctil (mobile): deslizar a la izquierda avanza, a la derecha retrocede.
+  const touchStartX = useRef<number | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (dx <= -45) next();
+    else if (dx >= 45) prev();
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal rules-modal" onClick={e => e.stopPropagation()}>
+      <div
+        className="modal rules-modal"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <button className="rules-close" onClick={onClose} aria-label="Cerrar"><CloseIcon size={18} /></button>
 
         <div className="rules-step" key={i}>
@@ -33,12 +52,9 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
         </div>
 
         <div className="rules-nav">
-          <button
-            className="rules-arrow"
-            onClick={() => setI(n => Math.max(0, n - 1))}
-            disabled={i === 0}
-            aria-label="Anterior"
-          ><ChevronLeftIcon size={18} /></button>
+          <button className="rules-arrow" onClick={prev} disabled={i === 0} aria-label="Anterior">
+            <ChevronLeftIcon size={18} />
+          </button>
 
           <div className="rules-dots">
             {steps.map((_, n) => (
@@ -54,13 +70,13 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
           {last ? (
             <button className="rules-done" onClick={onClose}>Entendido</button>
           ) : (
-            <button
-              className="rules-arrow"
-              onClick={() => setI(n => Math.min(steps.length - 1, n + 1))}
-              aria-label="Siguiente"
-            ><ChevronRightIcon size={18} /></button>
+            <button className="rules-arrow" onClick={next} aria-label="Siguiente">
+              <ChevronRightIcon size={18} />
+            </button>
           )}
         </div>
+
+        <p className="rules-swipe-hint">Deslizá para cambiar de paso</p>
       </div>
     </div>
   );

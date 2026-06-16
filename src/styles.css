@@ -225,6 +225,11 @@ html[data-ai-team] .draft-panel.team-a { --accent-team: var(--ai); }
 }
 .rules-dot.on { background: var(--accent); transform: scale(1.25); }
 .rules-done { flex-shrink: 0; padding: 9px 18px; }
+/* Hint de swipe: solo en dispositivos táctiles */
+.rules-swipe-hint { display: none; }
+@media (pointer: coarse) {
+  .rules-swipe-hint { display: block; text-align: center; font-size: 11px; color: var(--muted); margin: 12px 0 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .draft-name, .draft-panel.done .draft-name.winner { transition: none; animation: none; }
