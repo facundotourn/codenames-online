@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import type { RoomViewProps } from './viewProps';
 import { SettingsMenu } from './components/SettingsMenu';
 import { HelpButton } from './components/RulesHelp';
-import { ShareButton } from './components/ShareButton';
+import { RoomCodeShare } from './components/RoomCodeShare';
 import { generalSteps } from './help';
 import { AutoHeight } from './components/AutoHeight';
 import {
@@ -162,9 +162,8 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
   return (
     <div className="screen lobby">
       <header className="room-head">
-        <div className="room-head-info">
-          <h2>Sala <code className="room-code">{room}</code></h2>
-          <ShareButton room={room} />
+        <div>
+          <h2>Sala <RoomCodeShare room={room} /></h2>
         </div>
         <div className="head-actions">
           <HelpButton steps={generalSteps} />
