@@ -321,6 +321,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .room-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
 .room-head h2 { margin: 0; }
+.room-head-info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.share-btn { padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
 .back-btn { flex-shrink: 0; font-size: 13px; padding: 8px 12px; }
 .head-title { flex: 1; min-width: 0; }
 .room-code { font-size: 1.1em; letter-spacing: 0.15em; background: var(--surface-2); border-radius: 8px; padding: 2px 8px; }

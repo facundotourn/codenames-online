@@ -187,6 +187,20 @@ export const ChevronLeftIcon = (p: IconProps) => (
   <IconSvg {...p}><path d="M15 6l-6 6 6 6" /></IconSvg>
 );
 
+export const CheckIcon = (p: IconProps) => (
+  <IconSvg {...p}><path d="M5 13l4 4L19 7" /></IconSvg>
+);
+
+// Compartir (3 nodos conectados, estilo Android/Material).
+export const ShareIcon = (p: IconProps) => (
+  <IconSvg {...p}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+  </IconSvg>
+);
+
 export const ChevronRightIcon = (p: IconProps) => (
   <IconSvg {...p}><path d="M9 6l6 6-6 6" /></IconSvg>
 );
