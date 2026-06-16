@@ -168,7 +168,7 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
         <div className="head-actions">
           <HelpButton steps={generalSteps} />
           <SettingsMenu />
-          <button className="ghost" onClick={onLeave}>Salir</button>
+          <button className="exit-btn" onClick={onLeave}>Salir</button>
         </div>
       </header>
 

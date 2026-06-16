@@ -346,7 +346,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .room-head h2 { margin: 0; }
 .back-btn { flex-shrink: 0; font-size: 13px; padding: 8px 12px; }
 .head-title { flex: 1; min-width: 0; }
-.room-code { font-size: 1.1em; letter-spacing: 0.15em; background: var(--surface-2); border-radius: 8px; padding: 2px 8px; }
+.room-code { font-size: 1em; letter-spacing: 0.15em; background: var(--surface-2); border-radius: 8px; padding: 2px 8px; }
 
 /* Código de sala clickeable + popover para compartir */
 .code-share { position: relative; display: inline-block; }
@@ -732,6 +732,13 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 }
 .settings-btn:hover, .settings-btn.active, .help-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .settings-ico { color: var(--muted); }
+/* "Salir": mismo estilo sobrio que los botones de ayuda/config (con texto) */
+.exit-btn {
+  padding: 10px 13px; font-size: 13px; font-weight: 700;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.exit-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); filter: none; }
 /* Firma: link a GitHub al final del menú (gris oscuro, separado con un borde) */
 .settings-gh {
   display: inline-flex; align-items: center; gap: 7px;
