@@ -660,7 +660,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 /* ── Theme toggle ── */
 /* Mismo estilo y alto que "Salir"; solo cambia el contenido (icono) */
 .theme-toggle { display: inline-flex; align-items: center; justify-content: center; line-height: 0; padding: 10px 12px; }
-.screen-top { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.screen-top { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 6px; }
 
 /* ── Settings gear menu ── */
 .head-actions { display: flex; align-items: center; gap: 8px; }
@@ -678,6 +678,16 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 }
 .settings-btn:hover, .settings-btn.active, .help-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .settings-ico { color: var(--muted); }
+/* Firma: link a GitHub al final del menú (gris oscuro, separado con un borde) */
+.settings-gh {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding-top: 12px; border-top: 1px solid var(--border);
+  color: #3d4351; font-size: 12.5px; font-weight: 700; text-decoration: none;
+  transition: color 0.15s;
+}
+.settings-gh:hover { color: var(--text); }
+[data-theme="dark"] .settings-gh { color: #9aa3b2; }
+[data-theme="dark"] .settings-gh:hover { color: var(--text); }
 
 /* Íconos SVG inline dentro de texto (banner, chips, avisos): alinear con la línea. */
 .txt-ico { vertical-align: -0.16em; flex-shrink: 0; }

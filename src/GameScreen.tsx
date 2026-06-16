@@ -96,7 +96,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
     if (confettiFired.current || !confettiOn) return;
     if ((state.winner === 'red' || state.winner === 'blue') && confettiSupported()) {
       confettiFired.current = true;
-      fireVictoryConfetti(state.winner);
+      fireVictoryConfetti(state.winner, state.winner === state.aiTeam);
     }
   }, [showWin, state.winner, confettiOn]);
 

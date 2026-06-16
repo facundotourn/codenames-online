@@ -7,6 +7,8 @@ const PALETTES: Record<Team, string[]> = {
   red: ['#f87171', '#ef4444', '#c81e1e'],
   blue: ['#60a5fa', '#3b82f6', '#1a40b8'],
 };
+// Verde del equipo IA (se ve verde aunque internamente sea 'blue').
+const AI_PALETTE = ['#34d399', '#15b86b', '#0f9457'];
 
 // Solo en escritorio: se saltea punteros táctiles/gruesos y viewports angostos.
 export function confettiSupported(): boolean {
@@ -15,8 +17,8 @@ export function confettiSupported(): boolean {
 
 // Dos cañones disparan desde las esquinas inferiores hacia el centro, en el
 // color del equipo ganador.
-export function fireVictoryConfetti(team: Team): void {
-  const colors = PALETTES[team];
+export function fireVictoryConfetti(team: Team, ai = false): void {
+  const colors = ai ? AI_PALETTE : PALETTES[team];
   const end = Date.now() + 900;
 
   (function frame() {

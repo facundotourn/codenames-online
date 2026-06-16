@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { getTheme, toggleTheme, type Theme } from '../theme';
-import { GearIcon, MoonIcon } from './icons';
+import { GearIcon, MoonIcon, GitHubIcon } from './icons';
 
 // Menú de ajustes (engranaje) reutilizable. Siempre trae el cambio de tema;
 // `children` agrega filas extra (p. ej. las opciones in-game: suspenso, confeti).
@@ -38,6 +38,14 @@ export function SettingsMenu({ children }: { children?: ReactNode }) {
             </label>
           </div>
           {children}
+          <a
+            className="settings-gh"
+            href="https://github.com/facundotourn"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GitHubIcon size={15} /> facundotourn
+          </a>
         </div>
       )}
     </div>
