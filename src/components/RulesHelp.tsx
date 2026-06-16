@@ -55,9 +55,9 @@ function RulesModal({ steps, onClose }: { steps: HelpStep[]; onClose: () => void
       >
         <button className="rules-close" onClick={onClose} aria-label="Cerrar"><CloseIcon size={18} /></button>
 
-        <div className="rules-step" key={i}>
-          <h3 className="rules-title">{step.title}</h3>
-          <div className={`rules-body ${dir === 1 ? 'slide-next' : 'slide-prev'}`}>{step.body}</div>
+        <div className={`rules-step ${dir === 1 ? 'slide-next' : 'slide-prev'}`} key={i}>
+          <h3>{step.title}</h3>
+          <div className="rules-body">{step.body}</div>
         </div>
 
         <div className="rules-nav">
