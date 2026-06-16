@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Draft, DraftPick, Player } from '../../party/types';
 import { DRAFT_MS } from '../../party/types';
 import { teamLabel } from '../../party/rules';
+import { TopHatIcon } from './icons';
 
 const prefersReduced = () =>
   typeof window !== 'undefined' &&
@@ -58,7 +59,7 @@ function Roulette({ pick, players }: { pick: DraftPick; players: Record<string, 
         ))}
       </ul>
       <p className={`draft-result${done ? ' show' : ''}`} aria-live="polite">
-        {done ? <>🎩 ¡<strong>{names[chosenIndex]}</strong> es el jefe!</> : 'Girando…'}
+        {done ? <><TopHatIcon size={16} className="txt-ico" /> ¡<strong>{names[chosenIndex]}</strong> es el jefe!</> : 'Girando…'}
       </p>
     </div>
   );
@@ -69,7 +70,7 @@ function Roulette({ pick, players }: { pick: DraftPick; players: Record<string, 
 export function SpymasterDraft({ draft, players }: { draft: Draft; players: Record<string, Player> }) {
   return (
     <div className="screen draft-screen">
-      <h2 className="draft-heading">🎩 Sorteando jefe de espías</h2>
+      <h2 className="draft-heading"><TopHatIcon size={22} className="txt-ico" /> Sorteando jefe de espías</h2>
       <div className="draft-panels">
         {draft.picks.map(p => <Roulette key={p.team} pick={p} players={players} />)}
       </div>

@@ -249,7 +249,7 @@ button.ghost:hover { background: var(--accent-soft); filter: none; }
 /* ── Bienvenida ── */
 .welcome { max-width: 480px; }
 .hero { text-align: center; margin-bottom: 26px; }
-.hero-logo { font-size: 46px; line-height: 1; margin-bottom: 8px; }
+.hero-logo { color: var(--accent); line-height: 0; margin-bottom: 2px; }
 .hero h1 { font-size: 36px; margin: 0 0 8px; }
 .hero-on { color: var(--text); }
 .hero .tag { margin: 0; }
@@ -268,10 +268,10 @@ button.ghost:hover { background: var(--accent-soft); filter: none; }
 .entry-head h3 { margin: 0; font-size: 17px; }
 .entry-icon {
   flex-shrink: 0; width: 42px; height: 42px; border-radius: 13px;
-  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
 }
-.entry-icon.create { background: var(--accent-soft); }
-.entry-icon.join { background: rgba(59, 130, 246, 0.12); }
+.entry-icon.create { background: var(--accent-soft); color: var(--accent); }
+.entry-icon.join { background: rgba(59, 130, 246, 0.12); color: var(--blue); }
 .entry-card p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
 .entry-card > button.entry-action { width: 100%; }
 
@@ -373,8 +373,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Chip de jugador IA (asiento bloqueado) */
 .member.ai { background: rgba(21, 184, 107, 0.10); box-shadow: inset 0 0 0 1.5px rgba(21, 184, 107, 0.35); }
 .member.ai .pname { color: var(--ai-strong); font-weight: 800; }
-.ai-avatar { font-size: 15px; flex-shrink: 0; }
-.mi-lock { font-size: 12px; opacity: 0.7; }
+.ai-avatar { display: inline-flex; line-height: 0; flex-shrink: 0; color: var(--ai-strong); }
+.mi-lock { display: inline-flex; line-height: 0; opacity: 0.7; }
 
 /* ── Repintado global: con el equipo IA activo, todo lo azul pasa a verde ── */
 html[data-ai-team] { --blue: var(--ai); }
@@ -399,7 +399,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 }
 [data-theme="dark"] .ai-activity { background: rgba(21, 184, 107, 0.15); border-color: rgba(21, 184, 107, 0.5); }
 @keyframes aiActivityIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-.ai-activity-bot { font-size: 22px; flex-shrink: 0; }
+.ai-activity-bot { display: inline-flex; line-height: 0; flex-shrink: 0; color: var(--ai-strong); }
 /* Titular en UNA línea (estable, sin saltos de layout) */
 .ai-activity-text { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ai-dots { display: inline-flex; gap: 3px; flex-shrink: 0; vertical-align: middle; }
@@ -418,7 +418,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
   padding: 8px 13px;
 }
 .ai-analysis-toggle:hover { color: var(--ai-strong); border-color: rgba(21, 184, 107, 0.45); }
-.ai-analysis-bot { font-size: 15px; }
+.ai-analysis-bot { display: inline-flex; line-height: 0; }
 .ai-analysis-caret { color: var(--ai-strong); font-size: 12px; }
 .ai-analysis-box {
   margin-top: 8px; padding: 13px 15px;
@@ -446,6 +446,9 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
   font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted);
 }
+.rg-ico { display: inline-flex; align-items: center; line-height: 0; }
+/* Etiqueta del header de equipo: ícono (punto/robot) + nombre */
+.th-label { display: inline-flex; align-items: center; gap: 7px; }
 
 .members { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 /* Mismo alto que .join-btn para que unirse no salte la interfaz */
@@ -490,7 +493,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
   padding: 9px 13px; background: var(--surface-2); border-bottom: 1px solid var(--border);
   border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
 }
-.info-icon { font-size: 16px; }
+.info-icon { display: inline-flex; align-items: center; line-height: 0; color: var(--muted); }
 .info-title { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
 .info-body { padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
 
@@ -606,7 +609,7 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 .ai-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
 .ai-row .tip { margin-left: 0; }
 .ai-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 13px; }
-.ai-ico { font-size: 14px; }
+.ai-ico { display: inline-flex; line-height: 0; }
 .ai-credits { display: inline-flex; gap: 4px; margin-left: 2px; }
 .ai-credits i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-border); }
 .ai-credits i.on { background: var(--accent); }
@@ -627,22 +630,28 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 
 /* ── Theme toggle ── */
 /* Mismo estilo y alto que "Salir"; solo cambia el contenido (icono) */
-.theme-toggle { font-size: 16px; line-height: 1; padding: 11px 13px; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; line-height: 0; padding: 10px 12px; }
 .screen-top { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 
 /* ── Settings gear menu ── */
 .head-actions { display: flex; align-items: center; gap: 8px; }
 .settings-wrapper { position: relative; }
 .settings-btn {
-  padding: 7px 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 17px;
-  line-height: 1;
+  border-radius: 10px;
+  line-height: 0;
 }
 .settings-btn:hover, .settings-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.settings-ico { color: var(--muted); }
+
+/* Íconos SVG inline dentro de texto (banner, chips, avisos): alinear con la línea. */
+.txt-ico { vertical-align: -0.16em; flex-shrink: 0; }
 .settings-dropdown {
   position: absolute;
   right: 0;

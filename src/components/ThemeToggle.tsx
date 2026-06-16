@@ -1,17 +1,10 @@
 import { useState } from 'react';
-import { getTheme, applyTheme, type Theme } from '../theme';
+import { getTheme, toggleTheme, type Theme } from '../theme';
+import { SunIcon, MoonIcon } from './icons';
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(getTheme);
-  const toggle = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    // Habilitar la transición de colores solo durante el cambio (no en la carga).
-    const root = document.documentElement;
-    root.classList.add('theme-anim');
-    window.setTimeout(() => root.classList.remove('theme-anim'), 450);
-    applyTheme(next);
-    setTheme(next);
-  };
+  const toggle = () => setTheme(toggleTheme());
   return (
     <button
       className="ghost theme-toggle"
@@ -19,7 +12,7 @@ export function ThemeToggle() {
       aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
       title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
     >
-      {theme === 'dark' ? '☀️' : '🌙'}
+      {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
     </button>
   );
 }

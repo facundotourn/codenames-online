@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { RobotIcon } from './icons';
 
 // Efecto "tipeado": muestra `text` de a poco. Si el texto nuevo continúa al
 // anterior (se le agregó una línea), tipea solo lo nuevo; si cambió de raíz
@@ -45,7 +46,7 @@ export function AiAnalysis({ log }: { log: string }) {
   return (
     <div className="ai-analysis">
       <button className="ghost ai-analysis-toggle" onClick={toggle} aria-expanded={open}>
-        <span className="ai-analysis-bot">🤖</span>
+        <span className="ai-analysis-bot"><RobotIcon size={16} /></span>
         Razonamiento del agente IA
         <span className="ai-analysis-caret">{open ? '▴' : '▾'}</span>
       </button>

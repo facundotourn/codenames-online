@@ -5,7 +5,8 @@ import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
 import { AiAnalysis } from './components/AiAnalysis';
-import { ThemeToggle } from './components/ThemeToggle';
+import { getTheme, toggleTheme, type Theme } from './theme';
+import { GearIcon, MoonIcon, TrophyIcon, RobotIcon, BulbIcon, WarnIcon, HourglassIcon } from './components/icons';
 import { confettiSupported, fireVictoryConfetti } from './confetti';
 
 const lsBool = (key: string, def: boolean) => {
@@ -20,6 +21,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
   const [menuOpen, setMenuOpen] = useState(false);
   const [dramatic, setDramatic] = useState(() => lsBool('opt.dramatic', false));
   const [confettiOn, setConfettiOn] = useState(() => lsBool('opt.confetti', true));
+  const [theme, setTheme] = useState<Theme>(getTheme);
 
   // Cartas con su flip de reveal en curso: mientras haya alguna, diferimos el
   // anuncio de victoria (banner + confeti) para no spoilear el suspenso.
@@ -155,17 +157,27 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           </p>
         </div>
         <div className="head-actions">
-          <ThemeToggle />
           <div className="settings-wrapper" ref={menuRef}>
             <button
               className={`settings-btn${menuOpen ? ' active' : ''}`}
               onClick={() => setMenuOpen(o => !o)}
               aria-label="Opciones"
             >
-              ⚙
+              <GearIcon size={18} />
             </button>
             {menuOpen && (
               <div className="settings-dropdown">
+                <div className="settings-row">
+                  <span className="settings-label"><MoonIcon size={15} className="settings-ico" /> Tema oscuro</span>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={theme === 'dark'}
+                      onChange={() => setTheme(toggleTheme())}
+                    />
+                    <span className="slider" />
+                  </label>
+                </div>
                 <div className="settings-row">
                   <span className="settings-label">Suspenso final <span className="beta-badge">beta</span></span>
                   <label className="switch">
@@ -188,12 +200,19 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
 
       {showWin && state.winner ? (
         <div className={`banner turn-${state.winner}`}>
-          🏆 ¡Ganó el equipo {state.winner === state.aiTeam ? 'IA 🤖' : teamLabel(state.winner)}!
-          {assassinHit && ' — tocaron al asesino'}
+          <span className="banner-msg">
+            <TrophyIcon className="txt-ico" /> ¡Ganó el equipo{' '}
+            {state.winner === state.aiTeam
+              ? <>IA <RobotIcon size={17} className="txt-ico" /></>
+              : teamLabel(state.winner)}!
+            {assassinHit && ' — tocaron al asesino'}
+          </span>
         </div>
       ) : (
         <div className={`status-bar turn-${state.turn}`}>
-          <span className="turn-chip">Turno de {state.turn === state.aiTeam ? 'IA 🤖' : teamLabel(state.turn)}</span>
+          <span className="turn-chip">Turno de {state.turn === state.aiTeam
+            ? <>IA <RobotIcon size={15} className="txt-ico" /></>
+            : teamLabel(state.turn)}</span>
           {state.phase === 'awaitingClue' && !isAiTurn && <span className="muted">esperando la pista del jefe…</span>}
           {state.phase === 'guessing' && state.clue && (
             <span className="clue">
@@ -205,7 +224,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
 
       {state.aiActivity && (
         <div className="ai-activity">
-          <span className="ai-activity-bot">🤖</span>
+          <span className="ai-activity-bot"><RobotIcon size={18} /></span>
           <span className="ai-activity-text">{state.aiActivity.headline}</span>
           {state.aiActivity.thinking && (
             <span className="ai-dots" aria-hidden="true"><i /><i /><i /></span>
@@ -216,11 +235,11 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
       {showDisconnects && (
         <div className="notice-bar">
           <div className="notice-msg">
-            ⚠ <strong>{discNames}</strong> {verb}.{atRisk && ' Si no vuelve, la partida se cancela.'}
+            <WarnIcon size={16} className="txt-ico" /> <strong>{discNames}</strong> {verb}.{atRisk && ' Si no vuelve, la partida se cancela.'}
           </div>
           {atRisk && graceMs !== null && (
             <div className="grace">
-              <span className="grace-text">⏳ Vuelve al lobby en {Math.ceil(graceMs / 1000)}s</span>
+              <span className="grace-text"><HourglassIcon size={14} className="txt-ico" /> Vuelve al lobby en {Math.ceil(graceMs / 1000)}s</span>
               <span className="grace-bar">
                 <i style={{ width: `${(graceMs / VIABILITY_GRACE_MS) * 100}%` }} />
               </span>
@@ -259,7 +278,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           </div>
           <div className="ai-row">
             <button className="ghost ai-btn" onClick={askAI} disabled={askingAI || aiCluesLeft <= 0}>
-              <span className="ai-ico">💡</span>
+              <span className="ai-ico"><BulbIcon size={16} /></span>
               {askingAI ? 'Pensando…' : 'Sugerir pista'}
               <span className="ai-credits" aria-label={`${aiCluesLeft} de ${MAX_AI_CLUES} sugerencias`}>
                 {Array.from({ length: MAX_AI_CLUES }).map((_, i) => (
@@ -276,7 +295,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
           {clueSuggestion && (
             <div className="ai-suggestion">
               <div className="ai-suggestion-head">
-                <span className="ai-clue">💡 «{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
+                <span className="ai-clue"><BulbIcon size={16} className="txt-ico" /> «{clueSuggestion.word.toUpperCase()}» · {clueSuggestion.count}</span>
                 <button className="ai-use" onClick={useSuggestion}>Usar</button>
               </div>
               {clueSuggestion.words.length > 0 && (
@@ -310,7 +329,7 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
         )}
       </section>
 
-      {error && <p className="err toast">⚠ {error}</p>}
+      {error && <p className="err toast"><WarnIcon size={15} className="txt-ico" /> {error}</p>}
     </div>
   );
 }

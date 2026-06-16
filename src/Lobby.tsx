@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import type { Player, Role, Team } from '../party/types';
 import { startBlockReason, isTeamRole, draftTeams, teamLabel } from '../party/rules';
+import type { ReactNode } from 'react';
 import type { RoomViewProps } from './viewProps';
 import { ThemeToggle } from './components/ThemeToggle';
 import { AutoHeight } from './components/AutoHeight';
+import {
+  SpyIcon, UserIcon, TvIcon, EyeIcon, RobotIcon, LockIcon, CloseIcon,
+  DotIcon, TopHatIcon, RocketIcon, HourglassIcon, WarnIcon,
+} from './components/icons';
 
 const CrownIcon = () => (
   <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -89,14 +94,14 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
     );
   };
 
-  const roleGroup = (role: Role, team: Team | null, icon: string, title: string, single = false) => {
+  const roleGroup = (role: Role, team: Team | null, icon: ReactNode, title: string, single = false) => {
     const list = others(role, team);
     const active = iAm(role, team);
     // Rol de ocupación única (jefe de espías): si ya lo tiene otro, no se puede unir.
     const taken = single && list.length > 0;
     return (
       <div className="role-group">
-        <div className="role-group-title"><span>{icon}</span> {title}</div>
+        <div className="role-group-title"><span className="rg-ico">{icon}</span> {title}</div>
         <AutoHeight className="members-wrap">
           {list.length > 0 && (
             <ul className="members">
@@ -110,17 +115,17 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
   };
 
   // Asiento de un jugador IA (bloqueado, no se puede unir nadie humano).
-  const aiSeat = (icon: string, title: string, role: Role) => {
+  const aiSeat = (icon: ReactNode, title: string, role: Role) => {
     const bot = players.find(p => p.isAI && p.role === role);
     return (
       <div className="role-group">
-        <div className="role-group-title"><span>{icon}</span> {title}</div>
+        <div className="role-group-title"><span className="rg-ico">{icon}</span> {title}</div>
         <ul className="members">
           {bot && (
             <li className="member ai">
-              <span className="ai-avatar">🤖</span>
+              <span className="ai-avatar"><RobotIcon size={16} /></span>
               <span className="pname">{bot.name}</span>
-              <span className="mi mi-lock" title="Asiento de IA (bloqueado)">🔒</span>
+              <span className="mi mi-lock" title="Asiento de IA (bloqueado)"><LockIcon size={13} /></span>
             </li>
           )}
         </ul>
@@ -128,7 +133,7 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
     );
   };
 
-  const neutralCard = (role: Role, icon: string, title: string, tip: string) => {
+  const neutralCard = (role: Role, icon: ReactNode, title: string, tip: string) => {
     const list = others(role, null);
     return (
       <div className="info-card">
@@ -165,48 +170,52 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
 
       <div className="lobby-teams">
         <div className="team-panel red">
-          <div className="team-panel-head">🔴 Equipo Rojo</div>
-          {roleGroup('spymaster', 'red', '🕵️', 'Jefe de espías', true)}
-          {roleGroup('operative', 'red', '👤', 'Agentes')}
+          <div className="team-panel-head">
+            <span className="th-label"><DotIcon size={12} /> Equipo Rojo</span>
+          </div>
+          {roleGroup('spymaster', 'red', <SpyIcon size={15} />, 'Jefe de espías', true)}
+          {roleGroup('operative', 'red', <UserIcon size={15} />, 'Agentes')}
         </div>
         <div className="team-slot">
           <div className={`team-flip${aiOn ? ' flipped' : ''}`}>
             <div className="team-panel blue flip-face flip-front">
               <div className="team-panel-head">
-                <span>🔵 Equipo Azul</span>
+                <span className="th-label"><DotIcon size={12} /> Equipo Azul</span>
                 {isHost && (
                   <button
                     className="head-ai-btn"
                     onClick={() => send({ type: 'setAITeam', enabled: true })}
                     title="Jugar contra la IA"
-                  >🤖</button>
+                    aria-label="Jugar contra la IA"
+                  ><RobotIcon size={15} /></button>
                 )}
               </div>
-              {roleGroup('spymaster', 'blue', '🕵️', 'Jefe de espías', true)}
-              {roleGroup('operative', 'blue', '👤', 'Agentes')}
+              {roleGroup('spymaster', 'blue', <SpyIcon size={15} />, 'Jefe de espías', true)}
+              {roleGroup('operative', 'blue', <UserIcon size={15} />, 'Agentes')}
             </div>
             <div className="team-panel ai flip-face flip-back">
               <div className="team-panel-head ai-head">
-                <span>🤖 Equipo IA</span>
+                <span className="th-label"><RobotIcon size={16} /> Equipo IA</span>
                 {isHost && (
                   <button
                     className="head-ai-btn"
                     onClick={() => send({ type: 'setAITeam', enabled: false })}
                     title="Quitar el equipo IA"
-                  >✕</button>
+                    aria-label="Quitar el equipo IA"
+                  ><CloseIcon size={14} /></button>
                 )}
               </div>
-              {aiSeat('🕵️', 'Jefe de espías', 'spymaster')}
-              {aiSeat('👤', 'Agente', 'operative')}
+              {aiSeat(<SpyIcon size={15} />, 'Jefe de espías', 'spymaster')}
+              {aiSeat(<UserIcon size={15} />, 'Agente', 'operative')}
             </div>
           </div>
         </div>
       </div>
 
       <div className="lobby-neutrals">
-        {neutralCard('tableBoard', '📺', 'Mesa / TV',
+        {neutralCard('tableBoard', <TvIcon size={16} />, 'Mesa / TV',
           'Pantalla compartida (TV): puede revelar cartas de ambos equipos y terminar turnos. Ideal para juntadas presenciales.')}
-        {neutralCard('spectator', '👁️', 'Espectadores',
+        {neutralCard('spectator', <EyeIcon size={16} />, 'Espectadores',
           'Solo observa la partida: no revela cartas ni da pistas.')}
       </div>
 
@@ -215,7 +224,7 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
           className={`ready-btn${me.ready ? ' on' : ''}`}
           onClick={() => send({ type: 'setReady', value: !me.ready })}
         >
-          {me.ready ? '✓ Estoy listo' : 'Marcarme listo'}
+          {me.ready ? <><CheckIcon /> Estoy listo</> : 'Marcarme listo'}
         </button>
       )}
 
@@ -223,11 +232,11 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
         {isHost ? (
           <>
             <button className="start-btn" disabled={blockReason !== null} onClick={onStartClick}>
-              🚀 Iniciar partida
+              <RocketIcon size={18} className="txt-ico" /> Iniciar partida
             </button>
-            {blockReason && <p className="hint">⏳ {blockReason}</p>}
+            {blockReason && <p className="hint"><HourglassIcon size={14} className="txt-ico" /> {blockReason}</p>}
             {!blockReason && needsDraft.length > 0 && (
-              <p className="hint">🎩 Se sorteará el jefe de {draftTeamsText} entre sus agentes.</p>
+              <p className="hint"><TopHatIcon size={14} className="txt-ico" /> Se sorteará el jefe de {draftTeamsText} entre sus agentes.</p>
             )}
           </>
         ) : (
@@ -241,7 +250,7 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       {confirmDraft && (
         <div className="modal-backdrop" onClick={() => setConfirmDraft(false)}>
           <div className="modal draft-modal" onClick={e => e.stopPropagation()}>
-            <h3>🎩 Sortear jefe de espías</h3>
+            <h3><TopHatIcon size={18} className="txt-ico" /> Sortear jefe de espías</h3>
             <p>
               {needsDraft.length > 1 ? 'Los equipos' : 'El equipo'} <strong>{draftTeamsText}</strong>{' '}
               {needsDraft.length > 1 ? 'no tienen' : 'no tiene'} jefe de espías. Se elegirá uno al azar
@@ -249,13 +258,13 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
             </p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setConfirmDraft(false)}>Cancelar</button>
-              <button className="start-btn" onClick={confirmStart}>🚀 Sortear e iniciar</button>
+              <button className="start-btn" onClick={confirmStart}><RocketIcon size={17} className="txt-ico" /> Sortear e iniciar</button>
             </div>
           </div>
         </div>
       )}
 
-      {error && <p className="err toast">⚠ {error}</p>}
+      {error && <p className="err toast"><WarnIcon size={15} className="txt-ico" /> {error}</p>}
     </div>
   );
 }

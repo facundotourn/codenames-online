@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Room } from './Room';
 import { ThemeToggle } from './components/ThemeToggle';
+import { SpyIcon, SparkleIcon, KeyIcon } from './components/icons';
 import { track } from './analytics';
 
 // Identidad por pestaña, persistida en sessionStorage: una recarga (F5) reconecta
@@ -123,7 +124,7 @@ export default function App() {
     <div className="screen welcome">
       <div className="screen-top"><ThemeToggle /></div>
       <div className="hero">
-        <div className="hero-logo">🕵️</div>
+        <div className="hero-logo"><SpyIcon size={46} /></div>
         <h1><span className="r">Code</span><span className="b">names</span> <span className="hero-on">Online</span></h1>
         <p className="tag">Multiplayer en tiempo real · jugá con amigos en cualquier lado</p>
       </div>
@@ -141,7 +142,7 @@ export default function App() {
       <div className="entry-cards">
         <section className="entry-card">
           <div className="entry-head">
-            <div className="entry-icon create">✨</div>
+            <div className="entry-icon create"><SparkleIcon size={22} /></div>
             <h3>Crear una sala</h3>
           </div>
           <p>Empezá una partida nueva y compartí el código con tu gente.</p>
@@ -152,7 +153,7 @@ export default function App() {
 
         <section className="entry-card">
           <div className="entry-head">
-            <div className="entry-icon join">🔑</div>
+            <div className="entry-icon join"><KeyIcon size={22} strokeWidth={2.6} /></div>
             <h3>Unirse a una sala</h3>
           </div>
           <p>¿Te pasaron un código? Ingresalo y sumate.</p>
@@ -176,7 +177,7 @@ export default function App() {
         </section>
       </div>
 
-      {!canEnter && <p className="hint">👆 Poné tu nombre para crear o unirte a una sala.</p>}
+      {!canEnter && <p className="hint">Poné tu nombre para crear o unirte a una sala.</p>}
     </div>
   );
 }
