@@ -304,6 +304,21 @@ button.ghost:hover { background: var(--accent-soft); filter: none; }
 .entry-card p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
 .entry-card > button.entry-action { width: 100%; }
 
+/* Bienvenida "te invitaron a una sala" (entró por link sin nombre) */
+.join-linked { display: flex; flex-direction: column; }
+.join-room-btn { width: 100%; font-size: 16px; padding: 14px; }
+.join-room-code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  letter-spacing: 0.15em; background: rgba(255, 255, 255, 0.2);
+  border-radius: 7px; padding: 1px 8px; margin-left: 4px;
+}
+.link-muted {
+  align-self: center; margin-top: 14px; padding: 6px 10px;
+  background: none; border: none; color: var(--muted);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.link-muted:hover { color: var(--text); text-decoration: underline; filter: none; }
+
 .join-row { display: flex; gap: 10px; }
 .code-input {
   flex: 1;

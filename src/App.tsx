@@ -72,6 +72,13 @@ export default function App() {
     const storedName = (localStorage.getItem('playerName') ?? '').trim();
     return room && storedName ? { room, name: storedName, fresh: false } : null;
   });
+  // Llegó por un link /room/XXXX pero todavía no tiene nombre: la bienvenida se
+  // enfoca en "entrar a esa sala" (sin la opción de crear como acción principal).
+  const [linkedRoom, setLinkedRoom] = useState<string | null>(() => {
+    const room = parseRoom();
+    const storedName = (localStorage.getItem('playerName') ?? '').trim();
+    return room && !storedName ? room : null;
+  });
 
   const canEnter = name.trim().length > 0;
 
@@ -81,6 +88,7 @@ export default function App() {
       const room = parseRoom();
       const storedName = (localStorage.getItem('playerName') ?? '').trim();
       setJoined(room && storedName ? { room, name: storedName, fresh: false } : null);
+      setLinkedRoom(room && !storedName ? room : null);
       if (room) setCodeInput(room);
     };
     window.addEventListener('popstate', onPop);
@@ -93,11 +101,13 @@ export default function App() {
     const code = room.toUpperCase();
     localStorage.setItem('playerName', finalName);
     window.history.pushState({}, '', `/room/${code}`);
+    setLinkedRoom(null);
     setJoined({ room: code, name: finalName, fresh });
   };
 
   const leave = () => {
     window.history.pushState({}, '', '/');
+    setLinkedRoom(null);
     setJoined(null);
   };
 
@@ -109,6 +119,9 @@ export default function App() {
     const room = codeInput.trim().toUpperCase();
     if (room) { track('room_joined'); enter(room, false); }
   };
+  // Entrar a la sala del link, y "volver al inicio" (descarta el link).
+  const joinLinkedRoom = () => { if (linkedRoom) { track('room_joined'); enter(linkedRoom, false); } };
+  const goHome = () => { window.history.pushState({}, '', '/'); setLinkedRoom(null); setCodeInput(''); };
 
   if (joined) {
     return (
@@ -128,7 +141,11 @@ export default function App() {
       <div className="hero">
         <div className="hero-logo"><SpyIcon size={46} /></div>
         <h1><span className="r">Code</span><span className="b">names</span> <span className="hero-on">Online</span></h1>
-        <p className="tag">Multiplayer en tiempo real · jugá con amigos en cualquier lado</p>
+        <p className="tag">
+          {linkedRoom
+            ? 'Te invitaron a una partida — poné tu nombre y entrá'
+            : 'Multiplayer en tiempo real · jugá con amigos en cualquier lado'}
+        </p>
       </div>
 
       <label className="name-field">
@@ -141,45 +158,57 @@ export default function App() {
         />
       </label>
 
-      <div className="entry-cards">
-        <section className="entry-card">
-          <div className="entry-head">
-            <div className="entry-icon create"><SparkleIcon size={22} /></div>
-            <h3>Crear una sala</h3>
-          </div>
-          <p>Empezá una partida nueva y compartí el código con tu gente.</p>
-          <button className="btn-pop entry-action" onClick={createRoom} disabled={!canEnter}>
-            Crear sala
+      {linkedRoom ? (
+        <div className="join-linked">
+          <button className="btn-pop join-room-btn" onClick={joinLinkedRoom} disabled={!canEnter}>
+            Entrar a la sala <span className="join-room-code">{linkedRoom}</span>
           </button>
-        </section>
+          {!canEnter && <p className="hint">Poné tu nombre para entrar a la sala.</p>}
+          <button className="link-muted" onClick={goHome}>o crear una sala nueva</button>
+        </div>
+      ) : (
+        <>
+          <div className="entry-cards">
+            <section className="entry-card">
+              <div className="entry-head">
+                <div className="entry-icon create"><SparkleIcon size={22} /></div>
+                <h3>Crear una sala</h3>
+              </div>
+              <p>Empezá una partida nueva y compartí el código con tu gente.</p>
+              <button className="btn-pop entry-action" onClick={createRoom} disabled={!canEnter}>
+                Crear sala
+              </button>
+            </section>
 
-        <section className="entry-card">
-          <div className="entry-head">
-            <div className="entry-icon join"><KeyIcon size={22} strokeWidth={2.6} /></div>
-            <h3>Unirse a una sala</h3>
+            <section className="entry-card">
+              <div className="entry-head">
+                <div className="entry-icon join"><KeyIcon size={22} strokeWidth={2.6} /></div>
+                <h3>Unirse a una sala</h3>
+              </div>
+              <p>¿Te pasaron un código? Ingresalo y sumate.</p>
+              <div className="join-row">
+                <input
+                  className="code-input"
+                  value={codeInput}
+                  onChange={e => setCodeInput(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && joinRoom()}
+                  placeholder="CÓDIGO"
+                  maxLength={4}
+                />
+                <button
+                  className="ghost"
+                  onClick={joinRoom}
+                  disabled={!canEnter || codeInput.trim().length === 0}
+                >
+                  Unirse
+                </button>
+              </div>
+            </section>
           </div>
-          <p>¿Te pasaron un código? Ingresalo y sumate.</p>
-          <div className="join-row">
-            <input
-              className="code-input"
-              value={codeInput}
-              onChange={e => setCodeInput(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && joinRoom()}
-              placeholder="CÓDIGO"
-              maxLength={4}
-            />
-            <button
-              className="ghost"
-              onClick={joinRoom}
-              disabled={!canEnter || codeInput.trim().length === 0}
-            >
-              Unirse
-            </button>
-          </div>
-        </section>
-      </div>
 
-      {!canEnter && <p className="hint">Poné tu nombre para crear o unirte a una sala.</p>}
+          {!canEnter && <p className="hint">Poné tu nombre para crear o unirte a una sala.</p>}
+        </>
+      )}
     </div>
   );
 }
