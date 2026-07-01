@@ -235,6 +235,19 @@ export function Lobby({ state, me, room, send, onLeave, error }: RoomViewProps) 
       <section className="lobby-start">
         {isHost ? (
           <>
+            <div className="word-variant" role="group" aria-label="Set de palabras">
+              <span className="wv-label">Palabras</span>
+              <div className="wv-seg">
+                <button
+                  className={state.wordVariant === 'ar' ? 'on' : ''}
+                  onClick={() => send({ type: 'setWordVariant', variant: 'ar' })}
+                >Argentino</button>
+                <button
+                  className={state.wordVariant === 'es' ? 'on' : ''}
+                  onClick={() => send({ type: 'setWordVariant', variant: 'es' })}
+                >Español</button>
+              </div>
+            </div>
             <button className="start-btn" disabled={blockReason !== null} onClick={onStartClick}>
               <RocketIcon size={18} className="txt-ico" /> Iniciar partida
             </button>

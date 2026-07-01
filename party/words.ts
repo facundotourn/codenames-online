@@ -1,7 +1,11 @@
-// Lista de palabras (reutilizada de la v1). Solo el servidor la usa: el tablero
-// generado viaja a los clientes ya con las palabras elegidas.
-export const WORDS: string[] = [
-  "GALERA", "ABOGADO", "ACEITE", "ÁFRICA", "AGENTE", "AGUA", "ÁGUILA", "AGUJA", "AGUJERO", "AIRE",
+// Lista de palabras. Solo el servidor la usa: el tablero generado viaja a los
+// clientes ya con las palabras elegidas. La base está en español neutro; la
+// variante argentina (default del juego) reemplaza las pocas que decimos
+// distinto acá (ver VARIANTE_AR más abajo).
+import type { WordVariant } from './types';
+
+export const WORDS_ES: string[] = [
+  "CHISTERA", "ABOGADO", "ACEITE", "ÁFRICA", "AGENTE", "AGUA", "ÁGUILA", "AGUJA", "AGUJERO", "AIRE",
   "ALEMANIA", "ALGODÓN", "ALIANZA", "ALPES", "AMBULANCIA", "AMÉRICA", "ÁNGEL", "ANILLO", "ANTÁRTIDA",
   "ANTORCHA", "ARAÑA", "ARCHIVO", "ARCO", "ARGENTINA", "ARTÍCULO", "AS", "ATLÁNTIDA", "AZTECA",
   "BAILE", "BALA", "BALLENA", "BANCO", "BANDA", "BAÑO", "BARCO", "BARRA", "BATERÍA", "BERLÍN",
@@ -9,7 +13,7 @@ export const WORDS: string[] = [
   "BOTELLA", "BOTÓN", "BRAZO", "BRUJA", "CABALLERO", "CABALLO", "CABEZA", "CABINA", "CABO", "CACTUS",
   "CADENA", "CAJA", "CAMA", "CÁMARA", "CAMBIO", "CAMPANA", "CAMPO", "CANAL", "CANGURO", "CANTO",
   "CAPA", "CAPITAL", "CARA", "CARAVANA", "CARGA", "CARRERA", "CARRO", "CARTA", "CASCO", "CASINO",
-  "CAZA", "CEMENTERIO", "CENTAURO", "CENTRO", "EL DIEGOTE", "CHECO", "CHOCOLATE", "CHOQUE",
+  "CAZA", "CEMENTERIO", "CENTAURO", "CENTRO", "CHECO", "CHOCOLATE", "CHOQUE",
   "CIENTÍFICO", "CINTA", "CINTURÓN", "CÍRCULO", "CLASE", "COCHE", "COCINERO", "COCO", "CÓDIGO",
   "COLA", "CÓLERA", "COLUMNA", "COMETA", "COMPÁS", "CONCIERTO", "CONEJO", "CONTRABANDISTA", "COPA",
   "CORAZÓN", "CORNETA", "CORONA", "CORREDOR", "CORRIENTE", "CORTE", "CRESTA", "CROMO", "CRUZ",
@@ -17,8 +21,8 @@ export const WORDS: string[] = [
   "DESTINO", "DÍA", "DIAMANTE", "DIANA", "DIARIO", "DIENTE", "DINOSAURIO", "DISCO", "DRAGÓN",
   "DUENDE", "EGIPTO", "EMBAJADA", "EMPERADOR", "ENANO", "ENFERMEDAD", "ENFERMERA", "ENLACE",
   "ESCORPIÓN", "ESCRITORIO", "ESPACIO", "ESPÍA", "ESTACIÓN", "ESTADIO", "ESTADO", "ESTRELLA",
-  "ESTUDIO", "ETIQUETA", "EUROPA", "ALIEN", "FALDA", "FANTASMA", "FARO", "FICHA", "FIESTA", "FIGURA",
-  "FLAUTA", "FLECHA", "FOSO", "FRANCIA", "FRENTE", "FUEGO", "FUENTE", "FUERZA", "CAMIONETA",
+  "ESTUDIO", "ETIQUETA", "EUROPA", "EXTRATERRESTRE", "FALDA", "FANTASMA", "FARO", "FICHA", "FIESTA", "FIGURA",
+  "FLAUTA", "FLECHA", "FOSO", "FRANCIA", "FRENTE", "FUEGO", "FUENTE", "FUERZA", "FURGONETA",
   "GANCHO", "GATO", "GENIO", "GIGANTE", "GOLFO", "GOLONDRINA", "GOLPE", "GOMA", "GÓNDOLA", "GOTA",
   "GRADO", "GRANADA", "GRANO", "GRECIA", "GRIFO", "GUANTE", "GUARDIA", "GUERRA", "GUSANO", "HELADO",
   "HELICÓPTERO", "HIELO", "HIERBA", "HOJA", "HOLLYWOOD", "HORCA", "HOSPITAL", "HOTEL", "HUMO",
@@ -29,7 +33,7 @@ export const WORDS: string[] = [
   "MÁSCARA", "MAZO", "MÉDICO", "MERCURIO", "MESA", "METRO", "MÉXICO", "MICRO", "MICROSCOPIO",
   "MILLONARIO", "MINA", "MISIL", "MODELO", "MÓDULO", "MONITOR", "MONO", "MORTERO", "MOSCÚ",
   "MOTOR", "MUELLE", "MUERTE", "MUÑECA", "MURO", "NARANJA", "NAVE", "NIEVE", "NILO", "NINJA",
-  "NOCHE", "NOTA", "NUDO", "NUEVAYORK", "OBRA", "OJO", "OLA", "OLIMPO", "ÓPERA", "ORDEN", "ÓRGANO",
+  "NOCHE", "NOTA", "NUDO", "NUEVA YORK", "OBRA", "OJO", "OLA", "OLIMPO", "ÓPERA", "ORDEN", "ÓRGANO",
   "ORNITORRINCO", "ORO", "OSO", "PALA", "PALMA", "PANTALLA", "PAPA", "PAPEL", "PARACAÍDAS", "PASE",
   "PASO", "PASTA", "PASTEL", "PAVO", "PEKÍN", "PELÍCULA", "PELOTÓN", "PENDIENTE", "PERRO", "PEZ",
   "PICO", "PIE", "PIEZA", "PILA", "PILOTO", "PINCHO", "PINGÜINO", "PINTA", "PIÑA", "PIRÁMIDE",
@@ -44,3 +48,20 @@ export const WORDS: string[] = [
   "TUBO", "UNICORNIO", "VACÍO", "VAMPIRO", "VELA", "VENENO", "VENUS", "VESTIDO", "VIDA", "VIDRIO",
   "VIENTO", "YEMA", "ZANAHORIA", "ZAPATO",
 ];
+
+// Palabras que en Argentina decimos distinto: clave = forma neutra (como aparece
+// en WORDS_ES), valor = forma argentina. Se aplican al usar la variante 'ar'.
+export const VARIANTE_AR: Record<string, string> = {
+  CHISTERA: 'GALERA',
+  FURGONETA: 'CAMIONETA',
+  COCHE: 'AUTO',
+  PLÁTANO: 'BANANA',
+  JUDÍA: 'POROTO',
+  PASTEL: 'TORTA',
+  EXTRATERRESTRE: 'ALIEN',
+};
+
+export const WORDS_AR: string[] = WORDS_ES.map(w => VARIANTE_AR[w] ?? w);
+
+export const wordsFor = (variant: WordVariant): string[] =>
+  variant === 'ar' ? WORDS_AR : WORDS_ES;

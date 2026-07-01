@@ -615,7 +615,22 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
 .ready-btn.on { background: var(--surface); color: var(--green); border-color: var(--green); }
 
 .lobby-start { margin-top: 16px; }
+/* Selector del set de palabras (host) */
+.word-variant { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px; }
+.wv-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.wv-seg {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+}
+.wv-seg button {
+  padding: 6px 14px; font-size: 13px; font-weight: 700; border: none; border-radius: 999px;
+  background: transparent; color: var(--muted);
+}
+.wv-seg button:hover { filter: none; background: var(--accent-soft); color: var(--accent); }
+.wv-seg button.on, .wv-seg button.on:hover { background: var(--accent); color: #fff; }
 .start-btn { width: 100%; background: var(--green); font-size: 16px; padding: 13px; box-shadow: 0 4px 0 rgba(22, 163, 74, 0.3); }
+/* Separación del botón de iniciar respecto del selector de palabras (lobby) */
+.lobby-start .start-btn { margin-top: 14px; }
 .start-btn:active { box-shadow: 0 1px 0 rgba(22, 163, 74, 0.3); }
 .start-btn:disabled { background: var(--muted); box-shadow: none; }
 

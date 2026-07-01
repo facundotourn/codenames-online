@@ -1,11 +1,12 @@
 import type * as Party from 'partykit/server';
 import type {
-  GameState, Player, Phase, Card, Team, Clue, Role, AiActivity, Draft, DraftPick,
+  GameState, Player, Phase, Card, Team, Clue, Role, AiActivity, Draft, DraftPick, WordVariant,
   ClientMessage, ServerMessage,
 } from './types';
 import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS, DRAFT_MS } from './types';
 import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
 import { generateBoard } from './game';
+import { wordsFor } from './words';
 
 // Normaliza para comparar palabras (sin acentos ni mayúsculas).
 function normalize(s: string): string {
@@ -43,6 +44,7 @@ interface Snapshot {
   remaining: { red: number; blue: number };
   winner: Team | null;
   aiTeam: Team | null;
+  wordVariant: WordVariant;
 }
 
 // ── Fases 1-4 ──
@@ -63,6 +65,8 @@ export default class Server implements Party.Server {
   private remaining = { red: 0, blue: 0 };
   private winner: Team | null = null;
   private aiTeam: Team | null = null;
+  // Set de palabras elegido por el host (lobby). Default argentino.
+  private wordVariant: WordVariant = 'ar';
 
   // Sorteo de jefe de espías en curso (fase 'drafting'). Efímero: no se persiste
   // (la promoción del agente sí queda en players). Ver startGame/draftSpymasters.
@@ -106,6 +110,7 @@ export default class Server implements Party.Server {
     this.remaining = snap.remaining;
     this.winner = snap.winner;
     this.aiTeam = snap.aiTeam ?? null;
+    this.wordVariant = snap.wordVariant ?? 'ar';
     // El sorteo es efímero y su timer no sobrevive al reinicio del DO: si quedó
     // a mitad, los agentes ya fueron promovidos en players, así que se pasa
     // directo a esperar la pista (sin re-animar la ruleta).
@@ -207,6 +212,17 @@ export default class Server implements Party.Server {
         }
         // Solo el azul puede ser IA (decisión de diseño).
         this.setAITeam(msg.enabled ? 'blue' : null);
+        break;
+      }
+
+      case 'setWordVariant': {
+        if (sender.id !== this.hostId) {
+          return this.fail(sender, 'Solo el host puede cambiar el set de palabras.');
+        }
+        if (this.phase !== 'lobby') {
+          return this.fail(sender, 'El set de palabras solo se cambia en el lobby.');
+        }
+        this.wordVariant = msg.variant === 'es' ? 'es' : 'ar';
         break;
       }
 
@@ -340,7 +356,7 @@ export default class Server implements Party.Server {
     // a la fase de sorteo ('drafting') para que todos vean la ruleta antes de
     // arrancar. Sin sorteos pendientes, se va directo a esperar la pista.
     this.draft = this.draftSpymasters();
-    const { board, startingTeam, remaining } = generateBoard();
+    const { board, startingTeam, remaining } = generateBoard(wordsFor(this.wordVariant));
     this.phase = this.draft ? 'drafting' : 'awaitingClue';
     this.board = board;
     this.startingTeam = startingTeam;
@@ -970,6 +986,7 @@ export default class Server implements Party.Server {
       aiActivity: this.aiActivity,
       aiLog: this.aiLog,
       draft: this.draft,
+      wordVariant: this.wordVariant,
     };
   }
 
@@ -997,6 +1014,7 @@ export default class Server implements Party.Server {
       remaining: this.remaining,
       winner: this.winner,
       aiTeam: this.aiTeam,
+      wordVariant: this.wordVariant,
     };
     void this.room.storage.put('snapshot', snap);
   }

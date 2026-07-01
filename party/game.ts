@@ -1,5 +1,4 @@
 import type { Card, CardColor, Team } from './types';
-import { WORDS } from './words';
 
 function shuffle<T>(arr: T[]): T[] {
   // Fisher-Yates in place.
@@ -17,8 +16,9 @@ export interface GeneratedBoard {
 }
 
 // Tablero canónico de 25 cartas: 9 del equipo inicial, 8 del otro, 7 neutrales,
-// 1 asesino. El equipo inicial (con 9) se elige al azar.
-export function generateBoard(): GeneratedBoard {
+// 1 asesino. El equipo inicial (con 9) se elige al azar. `words` es el set ya
+// resuelto según la variante (ver wordsFor en words.ts).
+export function generateBoard(words: string[]): GeneratedBoard {
   const startingTeam: Team = Math.random() < 0.5 ? 'red' : 'blue';
   const otherTeam: Team = startingTeam === 'red' ? 'blue' : 'red';
 
@@ -30,8 +30,8 @@ export function generateBoard(): GeneratedBoard {
   ];
   shuffle(colors);
 
-  const words = shuffle([...WORDS]).slice(0, 25);
-  const board: Card[] = words.map((word, i) => ({
+  const chosen = shuffle([...words]).slice(0, 25);
+  const board: Card[] = chosen.map((word, i) => ({
     id: String(i),
     word,
     color: colors[i],

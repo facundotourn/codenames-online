@@ -3,6 +3,8 @@
 
 export type Team = 'red' | 'blue';
 export type CardColor = 'red' | 'blue' | 'neutral' | 'assassin';
+// Variante del set de palabras: 'ar' (argentino, default) o 'es' (español neutro).
+export type WordVariant = 'es' | 'ar';
 
 // Roles de equipo (requieren team) + roles neutrales (sin team).
 export type Role = 'spymaster' | 'operative' | 'tableBoard' | 'spectator';
@@ -66,6 +68,7 @@ export interface GameState {
   aiActivity: AiActivity | null; // titular corto del turno IA (efímero, arriba)
   aiLog: string;         // transcripción del razonamiento IA (debajo del tablero)
   draft: Draft | null;   // sorteo de jefe en curso (fase 'drafting'); null si no
+  wordVariant: WordVariant; // set de palabras elegido por el host (lobby)
 }
 
 // ── Parámetros de configuración (ver §16) ──
@@ -87,6 +90,7 @@ export type ClientMessage =
   | { type: 'setRole'; role: Role; team: Team | null }
   | { type: 'setReady'; value: boolean }
   | { type: 'setAITeam'; enabled: boolean }
+  | { type: 'setWordVariant'; variant: WordVariant }
   | { type: 'startGame' }
   | { type: 'giveClue'; word: string; count: number }
   | { type: 'guess'; cardId: string }

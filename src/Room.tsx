@@ -5,6 +5,7 @@ import type { ClueSuggestion } from './viewProps';
 import { Lobby } from './Lobby';
 import { GameScreen } from './GameScreen';
 import { SpymasterDraft } from './components/SpymasterDraft';
+import { useTurnNotification } from './useTurnNotification';
 
 // En dev, el server PartyKit corre aparte en :1999; en producción el front lo
 // sirve el mismo deploy, así que conectamos al host actual. Se puede forzar con
@@ -116,6 +117,10 @@ export function Room({ playerId, room, name, creating, onLeave }: Props) {
       return () => clearTimeout(t);
     }
   }, [phase]);
+
+  // Notificación (sonido + título parpadeante) cuando llega una pista para tu
+  // equipo y estás en otra pestaña.
+  useTurnNotification(state, playerId);
 
   const send = (msg: ClientMessage) => socket.send(JSON.stringify(msg));
 
