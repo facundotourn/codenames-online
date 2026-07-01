@@ -43,6 +43,13 @@ export const MoonIcon = (p: IconProps) => (
   </IconSvg>
 );
 
+export const BellIcon = (p: IconProps) => (
+  <IconSvg {...p}>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+  </IconSvg>
+);
+
 export const TrophyIcon = (p: IconProps) => (
   <IconSvg {...p}>
     <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />

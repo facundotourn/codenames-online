@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { getTheme, toggleTheme, type Theme } from '../theme';
-import { GearIcon, MoonIcon, GitHubIcon } from './icons';
+import { NOTIFY_KEY, notificationsOn } from '../useTurnNotification';
+import { GearIcon, MoonIcon, BellIcon, GitHubIcon } from './icons';
 
 // Menú de ajustes (engranaje) reutilizable. Siempre trae el cambio de tema;
 // `children` agrega filas extra (p. ej. las opciones in-game: suspenso, confeti).
 export function SettingsMenu({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(getTheme);
+  const [notify, setNotify] = useState<boolean>(notificationsOn);
   const ref = useRef<HTMLDivElement>(null);
+
+  const toggleNotify = () => {
+    const next = !notify;
+    localStorage.setItem(NOTIFY_KEY, next ? '1' : '0');
+    setNotify(next);
+  };
 
   // Cerrar al hacer clic afuera.
   useEffect(() => {
@@ -34,6 +42,13 @@ export function SettingsMenu({ children }: { children?: ReactNode }) {
             <span className="settings-label"><MoonIcon size={15} className="settings-ico" /> Tema oscuro</span>
             <label className="switch">
               <input type="checkbox" checked={theme === 'dark'} onChange={() => setTheme(toggleTheme())} />
+              <span className="slider" />
+            </label>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label"><BellIcon size={15} className="settings-ico" /> Aviso de pista</span>
+            <label className="switch">
+              <input type="checkbox" checked={notify} onChange={toggleNotify} />
               <span className="slider" />
             </label>
           </div>
