@@ -5,6 +5,7 @@ import type { Card } from '../party/types';
 import type { RoomViewProps } from './viewProps';
 import { Board } from './components/Board';
 import { AiAnalysis } from './components/AiAnalysis';
+import { MatchHistory } from './components/MatchHistory';
 import { SettingsMenu } from './components/SettingsMenu';
 import { HelpButton } from './components/RulesHelp';
 import { gameSteps, generalSteps } from './help';
@@ -292,6 +293,8 @@ export function GameScreen({ state, me, send, onLeave, error, clueSuggestion, on
       />
 
       {state.aiTeam && state.aiLog && <AiAnalysis log={state.aiLog} />}
+
+      {showWin && <MatchHistory history={state.history} aiTeam={state.aiTeam} defaultOpen={isTV} />}
 
       <section className="actions">
         {guessingNow && <button onClick={() => send({ type: 'endTurn' })}>Terminar turno</button>}

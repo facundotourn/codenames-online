@@ -1,7 +1,7 @@
 import type * as Party from 'partykit/server';
 import type {
   GameState, Player, Phase, Card, Team, Clue, Role, AiActivity, Draft, DraftPick, WordVariant,
-  ClientMessage, ServerMessage,
+  TurnRecord, ClientMessage, ServerMessage,
 } from './types';
 import { MAX_PER_TEAM, MAX_AI_CLUES, VIABILITY_GRACE_MS, DRAFT_MS } from './types';
 import { startBlockReason, viewFor, isTeamRole, gameViable } from './rules';
@@ -45,6 +45,7 @@ interface Snapshot {
   winner: Team | null;
   aiTeam: Team | null;
   wordVariant: WordVariant;
+  history: TurnRecord[];
 }
 
 // ── Fases 1-4 ──
@@ -75,6 +76,10 @@ export default class Server implements Party.Server {
   // Cartas reveladas en el turno actual (para el evento de analytics 'turn_ended':
   // qué palabras sacó el equipo con la pista vigente). Se vacía con cada pista.
   private turnReveals: { word: string; color: Card['color'] }[] = [];
+
+  // Historial de turnos cerrados (pista + intentos) de la partida en curso, para
+  // el resumen del final. Se reinicia con cada partida nueva.
+  private history: TurnRecord[] = [];
 
   // Motor del equipo IA: narración efímera + flag de turno en curso + un
   // "generation" que invalida un turno IA en vuelo si la partida se reinicia.
@@ -111,6 +116,7 @@ export default class Server implements Party.Server {
     this.winner = snap.winner;
     this.aiTeam = snap.aiTeam ?? null;
     this.wordVariant = snap.wordVariant ?? 'ar';
+    this.history = snap.history ?? [];
     // El sorteo es efímero y su timer no sobrevive al reinicio del DO: si quedó
     // a mitad, los agentes ya fueron promovidos en players, así que se pasa
     // directo a esperar la pista (sin re-animar la ruleta).
@@ -368,6 +374,7 @@ export default class Server implements Party.Server {
     for (const p of this.players.values()) p.aiCluesUsed = 0;
     if (this.draft) this.scheduleDraftFinish();
     this.turnReveals = [];
+    this.history = [];
     void this.sendGAEvent('game_started', {
       starting_team: startingTeam,
       vs_ai: this.aiTeam ? 1 : 0,
@@ -423,6 +430,7 @@ export default class Server implements Party.Server {
     this.clue = null;
     this.winner = null;
     this.remaining = { red: 0, blue: 0 };
+    this.history = [];
     // El equipo IA persiste entre partidas y siempre está listo.
     for (const p of this.players.values()) if (!p.isAI) p.ready = false;
   }
@@ -888,6 +896,13 @@ export default class Server implements Party.Server {
     if (!clue) return;
     const team = clue.team;
     const reveals = this.turnReveals;
+    // Guardar el turno en el historial (para el resumen del final de partida).
+    this.history.push({
+      team,
+      clueWord: clue.word,
+      clueCount: clue.count,
+      reveals: reveals.map(r => ({ word: r.word, color: r.color ?? 'neutral' })),
+    });
     const correct = reveals.filter(r => r.color === team).length;
     const wrong = reveals.filter(r => (r.color === 'red' || r.color === 'blue') && r.color !== team).length;
     const neutral = reveals.filter(r => r.color === 'neutral').length;
@@ -987,6 +1002,7 @@ export default class Server implements Party.Server {
       aiLog: this.aiLog,
       draft: this.draft,
       wordVariant: this.wordVariant,
+      history: this.history,
     };
   }
 
@@ -1015,6 +1031,7 @@ export default class Server implements Party.Server {
       winner: this.winner,
       aiTeam: this.aiTeam,
       wordVariant: this.wordVariant,
+      history: this.history,
     };
     void this.room.storage.put('snapshot', snap);
   }

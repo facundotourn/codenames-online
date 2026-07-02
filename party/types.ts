@@ -35,6 +35,16 @@ export interface Clue {
   guessesUsed: number;   // hasta N + 1
 }
 
+// Registro de un turno cerrado: la pista y en qué orden arriesgaron los agentes
+// (cada intento con el color que resultó). Alimenta el resumen del final de la
+// partida. Solo guarda cartas ya reveladas, así que no filtra info oculta.
+export interface TurnRecord {
+  team: Team;
+  clueWord: string;
+  clueCount: number;
+  reveals: { word: string; color: CardColor }[];
+}
+
 // Titular corto del turno IA (arriba del tablero), efímero. El razonamiento
 // largo va aparte en GameState.aiLog (transcripción, debajo del tablero).
 export interface AiActivity {
@@ -69,6 +79,7 @@ export interface GameState {
   aiLog: string;         // transcripción del razonamiento IA (debajo del tablero)
   draft: Draft | null;   // sorteo de jefe en curso (fase 'drafting'); null si no
   wordVariant: WordVariant; // set de palabras elegido por el host (lobby)
+  history: TurnRecord[]; // turnos cerrados (pista + intentos); resumen al final
 }
 
 // ── Parámetros de configuración (ver §16) ──

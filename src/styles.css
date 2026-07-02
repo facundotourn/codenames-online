@@ -988,3 +988,85 @@ html[data-ai-team] .spy.team-a .card-front .card-word { color: var(--ai-strong);
   .board { margin-top: 12px; }
 }
 
+/* ── Historial de pistas (resumen al final de la partida) ── */
+.match-history { padding: 0; overflow: hidden; }
+.mh-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.mh-title { font-size: 15px; font-weight: 700; }
+.mh-count {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--border);
+  color: var(--muted);
+}
+.mh-chevron { margin-left: auto; color: var(--muted); transition: transform 0.2s ease; }
+.match-history.open .mh-chevron { transform: rotate(90deg); }
+.match-history .mh-turns {
+  list-style: none;
+  margin: 0;
+  padding: 6px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mh-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.mh-turn:last-child { border-bottom: none; padding-bottom: 0; }
+.mh-clue { display: flex; align-items: center; gap: 7px; }
+.mh-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.mh-dot.red { background: var(--red); }
+.mh-dot.blue { background: var(--blue); }
+.mh-bot { color: var(--ai-strong); }
+.mh-clue-word { font-weight: 700; font-size: 14px; letter-spacing: 0.2px; }
+.mh-clue-count {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--border);
+  color: var(--muted);
+}
+.mh-guesses { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 16px; }
+.mh-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+.mh-chip {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  color: #fff;
+}
+.mh-chip.red { background: var(--red); }
+.mh-chip.blue { background: var(--blue); }
+.mh-chip.neutral { background: #b9ad97; color: #3a3128; }
+.mh-chip.assassin { background: #262b36; color: #f1f5f9; }
+[data-theme="dark"] .mh-chip.neutral { background: #8f8570; color: #1a1710; }
+
